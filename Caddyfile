@@ -1,18 +1,44 @@
+# lc.harshits.live {
+#     # Compress responses
+#     encode gzip
+
+#     # Root directory for frontend assets
+#     root * ./artifacts/lc-tracker/dist/public
+
+#     # 1. API Proxy
+#     handle /api/* {
+#         reverse_proxy localhost:3000
+#     }
+
+#     # 2. Frontend
+#     handle {
+#         # Handle React routing: if file not found, serve index.html
+#         try_files {path} {path}/ /index.html
+#         file_server
+#     }
+# }
+
+
 lc.harshits.live {
-    # Compress responses
+    # This will log all requests to stdout so you can see them in your terminal
+    log {
+        output stdout
+    }
+
     encode gzip
 
-    # Root directory for frontend assets
-    root * ./artifacts/lc-tracker/dist/public
+    # Let's try to be as direct as possible with the root
+    root * artifacts/lc-tracker/dist/public
 
-    # 1. API Proxy
+    # Handle API requests
     handle /api/* {
         reverse_proxy localhost:3000
     }
 
-    # 2. Frontend
+    # Handle Frontend
     handle {
-        # Handle React routing: if file not found, serve index.html
+        # Check if the file exists, if not, serve index.html
+        # Note: no ./ prefix, Caddy usually resolves from its startup dir
         try_files {path} {path}/ /index.html
         file_server
     }
