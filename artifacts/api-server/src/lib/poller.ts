@@ -20,6 +20,7 @@ import {
   getRecentAcceptedSubmissions,
   getLeetCodeProfile,
   getLeetCodeFollowing,
+  getProblemDifficulty,
   sleep,
   INTER_USER_DELAY_MS,
 } from "./leetcode";
@@ -158,13 +159,17 @@ async function pollUser(username: string): Promise<void> {
   );
 
   // 4. Persist new solved problems
-  const rows = newSubmissions.map((s) => ({
-    leetcodeUsername: username,
-    problemSlug: s.titleSlug,
-    problemTitle: s.title,
-    difficulty: "Unknown",
-    solvedAt: new Date(Number(s.timestamp) * 1_000),
-  }));
+  const rows = [];
+  for (const s of newSubmissions) {
+    const difficulty = await getProblemDifficulty(s.titleSlug);
+    rows.push({
+      leetcodeUsername: username,
+      problemSlug: s.titleSlug,
+      problemTitle: s.title,
+      difficulty,
+      solvedAt: new Date(Number(s.timestamp) * 1_000),
+    });
+  }
 
   await db.insert(solvedProblemsTable).values(rows).onConflictDoNothing();
 
@@ -177,19 +182,22 @@ async function pollUser(username: string): Promise<void> {
   if (!followers.length) return;
 
   // 6. Create an in-app notification for each follower × each new problem
-  const notifications = followers.flatMap(({ userId }) =>
-    newSubmissions.map((s) => ({
-      userId,
-      message: `${username} solved "${s.title}"`,
-      type: "solve",
-      leetcodeUsername: username,
-      problemTitle: s.title,
-      problemSlug: s.titleSlug,
-      difficulty: "Unknown",
-      read: false,
-      solvedAt: new Date(Number(s.timestamp) * 1_000),
-    })),
-  );
+  const notifications = [];
+  for (const row of rows) {
+    for (const follower of followers) {
+      notifications.push({
+        userId: follower.userId,
+        message: `${username} solved "${row.problemTitle}"`,
+        type: "solve" as const,
+        leetcodeUsername: username,
+        problemTitle: row.problemTitle,
+        problemSlug: row.problemSlug,
+        difficulty: row.difficulty,
+        read: false,
+        solvedAt: row.solvedAt,
+      });
+    }
+  }
 
   await db.insert(notificationsTable).values(notifications);
 

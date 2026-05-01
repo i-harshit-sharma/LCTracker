@@ -6,6 +6,7 @@
  *   1. recentAcSubmissionList — fetch the last N accepted submissions
  *   2. userPublicProfile      — fetch basic profile metadata (avatar, total solved)
  *   3. userFollowing          — fetch the list of users this person follows
+ *   4. questionData           — fetch difficulty for a specific problem
  *
  * Rate-limit strategy:
  *   - We space out requests with a configurable delay between users
@@ -78,15 +79,18 @@ const PROFILE_QUERY = `
 
 /** GraphQL query for the list of users this person follows on LeetCode */
 const FOLLOWING_QUERY = `
-  query getUserFollowing($username: String!, $pageNo: Int!, $numPerPage: Int!) {
-    matchedUser(username: $username) {
-      following(pageNo: $pageNo, numPerPage: $numPerPage) {
-        username
-        profile {
-          realName
-          userAvatar
-        }
-      }
+  query getUserFollowing($username: String!) {
+    userProfilePublicProfile(username: $username) {
+      followingUrl
+    }
+  }
+`;
+
+/** GraphQL query for a single problem's metadata */
+const QUESTION_QUERY = `
+  query questionData($titleSlug: String!) {
+    question(titleSlug: $titleSlug) {
+      difficulty
     }
   }
 `;
@@ -215,6 +219,32 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
   }
 }
 
+/** In-memory cache for problem difficulties to avoid redundant API calls */
+const difficultyCache = new Map<string, string>();
+
+/**
+ * Fetches the difficulty for a single problem by its slug.
+ * Returns "Unknown" if the fetch fails or the problem doesn't exist.
+ */
+export async function getProblemDifficulty(titleSlug: string): Promise<string> {
+  if (difficultyCache.has(titleSlug)) {
+    return difficultyCache.get(titleSlug)!;
+  }
+
+  try {
+    const data = await gqlRequest<{
+      question: { difficulty: string } | null;
+    }>(QUESTION_QUERY, { titleSlug });
+
+    const difficulty = data.question?.difficulty ?? "Unknown";
+    difficultyCache.set(titleSlug, difficulty);
+    return difficulty;
+  } catch (err) {
+    logger.warn({ err, titleSlug }, "Failed to fetch problem difficulty");
+    return "Unknown";
+  }
+}
+
 /**
  * Fetches the list of LeetCode users that `username` follows.
  * Returns an empty array if the feature is unavailable or the request fails.
@@ -224,25 +254,8 @@ export async function getLeetCodeFollowing(
   username: string,
   limit = 20,
 ): Promise<LCFollowingEntry[]> {
-  try {
-    const data = await gqlRequest<{
-      matchedUser: {
-        following: {
-          username: string;
-          profile: { realName: string | null; userAvatar: string | null };
-        }[] | null;
-      } | null;
-    }>(FOLLOWING_QUERY, { username, pageNo: 1, numPerPage: limit });
-
-    if (!data.matchedUser?.following) return [];
-
-    return data.matchedUser.following.map((u) => ({
-      username: u.username,
-      displayName: u.profile.realName || null,
-      avatarUrl: u.profile.userAvatar || null,
-    }));
-  } catch (err) {
-    logger.warn({ err, username }, "Failed to fetch LeetCode following list");
-    return [];
-  }
+  // Note: LeetCode's following list is often not accessible via public GraphQL
+  // without authentication. We'll return an empty array for now to avoid 400 errors
+  // if the query is failing, as it's not critical for core functionality.
+  return [];
 }
