@@ -72,7 +72,7 @@ export interface LeaderboardEntry {
   displayName?: string | null;
   /** @nullable */
   avatarUrl?: string | null;
-  solvedThisWeek: number;
+  solvedInPeriod: number;
   /** @nullable */
   totalSolved?: number | null;
 }
@@ -117,4 +117,17 @@ export type ListActivityParams = {
 
 export type GetLeaderboardParams = {
   scope?: "following" | "global";
+  period?: "day" | "week" | "month" | "year" | "all";
 };
+
+export interface UserPreferences {
+  digestHour: number;
+  digestMinute: number;
+  emailEnabled: boolean;
+}
+
+export interface UpdatePreferencesBody {
+  digestHour?: number;
+  digestMinute?: number;
+  emailEnabled?: boolean;
+}

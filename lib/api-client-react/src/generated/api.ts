@@ -975,3 +975,148 @@ export function useGetLeetcodeProfile<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+// ---------------------------------------------------------------------------
+// Preferences — GET /api/preferences, PUT /api/preferences
+// ---------------------------------------------------------------------------
+
+import type { UserPreferences, UpdatePreferencesBody } from "./api.schemas";
+
+/**
+ * @summary Get current user's digest email preferences
+ */
+export const getGetPreferencesUrl = () => `/api/preferences`;
+
+export const getPreferences = async (
+  options?: RequestInit,
+): Promise<UserPreferences> =>
+  customFetch<UserPreferences>(getGetPreferencesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+export const getGetPreferencesQueryKey = () =>
+  [`/api/preferences`] as const;
+
+export const getGetPreferencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPreferences>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPreferences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetPreferencesQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPreferences>>> = ({
+    signal,
+  }) => getPreferences({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPreferences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPreferencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPreferences>>
+>;
+export type GetPreferencesQueryError = ErrorType<void>;
+
+export function useGetPreferences<
+  TData = Awaited<ReturnType<typeof getPreferences>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPreferences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPreferencesQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update current user's digest email preferences
+ */
+export const getUpdatePreferencesUrl = () => `/api/preferences`;
+
+export const updatePreferences = async (
+  updatePreferencesBody: UpdatePreferencesBody,
+  options?: RequestInit,
+): Promise<UserPreferences> =>
+  customFetch<UserPreferences>(getUpdatePreferencesUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePreferencesBody),
+  });
+
+export const getUpdatePreferencesMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePreferences>>,
+    TError,
+    { data: BodyType<UpdatePreferencesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePreferences>>,
+  TError,
+  { data: BodyType<UpdatePreferencesBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePreferences"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePreferences>>,
+    { data: BodyType<UpdatePreferencesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+    return updatePreferences(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePreferencesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePreferences>>
+>;
+export type UpdatePreferencesMutationBody = BodyType<UpdatePreferencesBody>;
+export type UpdatePreferencesMutationError = ErrorType<void>;
+
+export const useUpdatePreferences = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePreferences>>,
+    TError,
+    { data: BodyType<UpdatePreferencesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePreferences>>,
+  TError,
+  { data: BodyType<UpdatePreferencesBody> },
+  TContext
+> => useMutation(getUpdatePreferencesMutationOptions(options));

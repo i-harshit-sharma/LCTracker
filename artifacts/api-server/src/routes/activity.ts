@@ -146,7 +146,7 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as any).userId as string;
-  const { scope = "following" } = req.query;
+  const { scope = "following", period = "week" } = req.query;
 
   let users: {
     leetcodeUsername: string;
@@ -156,7 +156,6 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
   }[] = [];
 
   if (scope === "global") {
-    // Get all users from profiles table
     const allProfiles = await db
       .select({
         leetcodeUsername: leetcodeProfilesTable.username,
@@ -168,7 +167,6 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
 
     users = allProfiles;
   } else {
-    // Default: followed users
     const followed = await db
       .select({
         leetcodeUsername: followsTable.leetcodeUsername,
@@ -189,40 +187,79 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
 
   const usernames = users.map((u) => u.leetcodeUsername);
 
-  const now = new Date();
-  const startOfWeek = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  startOfWeek.setUTCDate(startOfWeek.getUTCDate() - startOfWeek.getUTCDay());
+  // For "all" period sort by totalSolved from profile data (no DB count needed)
+  if (period === "all") {
+    const leaderboard = users
+      .map((u) => ({
+        leetcodeUsername: u.leetcodeUsername,
+        displayName: u.displayName ?? null,
+        avatarUrl: u.avatarUrl ?? null,
+        totalSolved: u.totalSolved ?? null,
+        solvedInPeriod: u.totalSolved ?? 0,
+      }))
+      .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
+      .slice(0, 50);
 
-  // Count weekly solves per username
-  const weeklyCounts = await db
+    res.json(GetLeaderboardResponse.parse(serializeDates(leaderboard)));
+    return;
+  }
+
+  // Compute period start in UTC
+  const now = new Date();
+  let periodStart: Date;
+
+  if (period === "day") {
+    // "Day" starts at 12:00 AM IST (UTC+5:30 = 330 minutes ahead of UTC).
+    // IST midnight = UTC 18:30 the *previous* day.
+    // Strategy: find the current date in IST, then express IST midnight as a UTC timestamp.
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // 330 min in ms
+    const nowInIST = new Date(now.getTime() + IST_OFFSET_MS);
+    // Midnight of the current IST day (in IST "clock time")
+    const istMidnight = new Date(
+      Date.UTC(nowInIST.getUTCFullYear(), nowInIST.getUTCMonth(), nowInIST.getUTCDate()),
+    );
+    // Shift back to UTC: subtract the IST offset so the timestamp points to IST midnight
+    periodStart = new Date(istMidnight.getTime() - IST_OFFSET_MS);
+  } else if (period === "month") {
+    periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  } else if (period === "year") {
+    periodStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+  } else {
+    // "week" (default) — start of current Sunday UTC
+    const startOfToday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    periodStart = new Date(startOfToday);
+    periodStart.setUTCDate(periodStart.getUTCDate() - periodStart.getUTCDay());
+  }
+
+  // Count solves per user within the selected period
+  const periodCounts = await db
     .select({
       leetcodeUsername: solvedProblemsTable.leetcodeUsername,
-      solvedThisWeek: sql<number>`count(*)::int`,
+      solvedInPeriod: sql<number>`count(*)::int`,
     })
     .from(solvedProblemsTable)
     .where(
       and(
         inArray(solvedProblemsTable.leetcodeUsername, usernames),
-        gte(solvedProblemsTable.solvedAt, startOfWeek),
+        gte(solvedProblemsTable.solvedAt, periodStart),
       ),
     )
     .groupBy(solvedProblemsTable.leetcodeUsername);
 
-  const countMap = new Map(weeklyCounts.map((r) => [r.leetcodeUsername, r.solvedThisWeek]));
+  const countMap = new Map(periodCounts.map((r) => [r.leetcodeUsername, r.solvedInPeriod]));
 
-  // Merge with user metadata and sort by weekly count desc
   const leaderboard = users
     .map((u) => ({
       leetcodeUsername: u.leetcodeUsername,
       displayName: u.displayName ?? null,
       avatarUrl: u.avatarUrl ?? null,
       totalSolved: u.totalSolved ?? null,
-      solvedThisWeek: countMap.get(u.leetcodeUsername) ?? 0,
+      solvedInPeriod: countMap.get(u.leetcodeUsername) ?? 0,
     }))
-    .sort((a, b) => b.solvedThisWeek - a.solvedThisWeek)
-    .slice(0, 50); // Limit to top 50 for performance
+    .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
+    .slice(0, 50);
 
   res.json(GetLeaderboardResponse.parse(serializeDates(leaderboard)));
 });

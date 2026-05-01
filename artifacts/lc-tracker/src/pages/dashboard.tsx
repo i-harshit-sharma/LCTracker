@@ -45,9 +45,18 @@ function StatCard({
 
 export default function DashboardPage() {
   const [lbScope, setLbScope] = useState<"following" | "global">("following");
+  const [lbPeriod, setLbPeriod] = useState<"day" | "week" | "month" | "year" | "all">("week");
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
-  const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope });
+  const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod });
   const { data: activity, isLoading: actLoading } = useListActivity({ limit: 30 });
+
+  const periodLabels: Record<string, string> = {
+    day: "today",
+    week: "this week",
+    month: "this month",
+    year: "this year",
+    all: "all time",
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,23 +189,38 @@ export default function DashboardPage() {
 
           <div>
             <Card>
-              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-primary" />
-                  Leaderboard
-                </CardTitle>
+              <CardHeader className="pb-2 flex flex-col gap-2">
+                <div className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    Leaderboard
+                  </CardTitle>
+                  <Tabs
+                    value={lbScope}
+                    onValueChange={(v) => setLbScope(v as "following" | "global")}
+                    className="w-auto"
+                  >
+                    <TabsList className="h-7 p-0.5 bg-muted/50">
+                      <TabsTrigger value="following" className="text-[10px] px-2 h-6">
+                        Following
+                      </TabsTrigger>
+                      <TabsTrigger value="global" className="text-[10px] px-2 h-6">
+                        Global
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
                 <Tabs
-                  value={lbScope}
-                  onValueChange={(v) => setLbScope(v as "following" | "global")}
-                  className="w-auto"
+                  value={lbPeriod}
+                  onValueChange={(v) => setLbPeriod(v as "day" | "week" | "month" | "year" | "all")}
+                  className="w-full"
                 >
-                  <TabsList className="h-7 p-0.5 bg-muted/50">
-                    <TabsTrigger value="following" className="text-[10px] px-2 h-6">
-                      Following
-                    </TabsTrigger>
-                    <TabsTrigger value="global" className="text-[10px] px-2 h-6">
-                      Global
-                    </TabsTrigger>
+                  <TabsList className="h-7 p-0.5 bg-muted/50 w-full flex">
+                    <TabsTrigger value="day" className="text-[10px] px-2 h-6 flex-1">Day</TabsTrigger>
+                    <TabsTrigger value="week" className="text-[10px] px-2 h-6 flex-1">Week</TabsTrigger>
+                    <TabsTrigger value="month" className="text-[10px] px-2 h-6 flex-1">Month</TabsTrigger>
+                    <TabsTrigger value="year" className="text-[10px] px-2 h-6 flex-1">Year</TabsTrigger>
+                    <TabsTrigger value="all" className="text-[10px] px-2 h-6 flex-1">All</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardHeader>
@@ -265,9 +289,9 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="font-bold text-sm text-primary">
-                            {entry.solvedThisWeek}
+                            {entry.solvedInPeriod}
                           </p>
-                          <p className="text-[10px] text-muted-foreground">this week</p>
+                          <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
                         </div>
                       </div>
                     ))}

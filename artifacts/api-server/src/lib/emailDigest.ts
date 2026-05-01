@@ -2,7 +2,8 @@
  * emailDigest.ts — Daily digest email system
  *
  * Sends each registered user a summary of everything the people they follow
- * solved today. The digest is triggered by a cron job at 23:59 daily.
+ * solved today. The digest is triggered by the cron job once per minute; it
+ * fires for users whose (digestHour, digestMinute) matches the current UTC time.
  *
  * Email delivery uses Resend (https://resend.com). If RESEND_API_KEY is not
  * configured, the digest is logged but not sent — this allows the app to run
@@ -16,11 +17,17 @@ import { eq, gte, lte, and, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 
 /**
- * Send the daily digest to all users who have at least one followed profile
- * that solved a problem today.
+ * Send the daily digest to the given list of Clerk userIds.
+ * Only users who have at least one followed profile that solved a problem
+ * today will actually receive an email.
+ *
+ * @param userIds  Subset of users whose digest hour+minute matches right now.
+ *                 Pass an empty array to skip (no-op).
  */
-export async function sendDailyDigests(): Promise<void> {
-  logger.info("Starting daily digest run");
+export async function sendDailyDigests(userIds: string[]): Promise<void> {
+  if (!userIds.length) return;
+
+  logger.info({ count: userIds.length }, "Starting daily digest run");
 
   // Define "today" as midnight→midnight in UTC
   const now = new Date();
@@ -31,17 +38,18 @@ export async function sendDailyDigests(): Promise<void> {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59),
   );
 
-  // 1. Load all follow relationships (userId → [leetcodeUsername, ...])
+  // 1. Load follow relationships only for the target users
   const allFollows = await db
     .select({ userId: followsTable.userId, leetcodeUsername: followsTable.leetcodeUsername })
-    .from(followsTable);
+    .from(followsTable)
+    .where(inArray(followsTable.userId, userIds));
 
   if (!allFollows.length) {
-    logger.info("No follows found — digest run complete with 0 emails");
+    logger.info("No follows found for digest recipients — skipping");
     return;
   }
 
-  // 2. Get all unique usernames across all followers
+  // 2. Get all unique usernames for these followers
   const allUsernames = [...new Set(allFollows.map((f) => f.leetcodeUsername))];
 
   // 3. Fetch every problem solved today for those usernames
@@ -150,6 +158,7 @@ function buildDigestHtml(
     </table>
     <p style="margin-top:24px;font-size:12px;color:#9ca3af;">
       You're receiving this because you follow LeetCode users on LeetCode Tracker.
+      To change when you receive this email, visit your <a href="#" style="color:#f97316;">notification settings</a>.
     </p>
   </div>
 </body>

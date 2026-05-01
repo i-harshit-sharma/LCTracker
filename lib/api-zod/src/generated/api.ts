@@ -125,13 +125,14 @@ export const GetActivityStatsResponse = zod.object({
 
 export const GetLeaderboardQueryParams = zod.object({
   scope: zod.enum(["following", "global"]).optional(),
+  period: zod.enum(["day", "week", "month", "year", "all"]).optional(),
 });
 
 export const GetLeaderboardResponseItem = zod.object({
   leetcodeUsername: zod.string(),
   displayName: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
-  solvedThisWeek: zod.number(),
+  solvedInPeriod: zod.number(),
   totalSolved: zod.number().nullish(),
 });
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);
@@ -169,4 +170,19 @@ export const GetLeetcodeProfileResponse = zod.object({
       avatarUrl: zod.string().nullish(),
     }),
   ),
+});
+
+/**
+ * @summary Get/update the current user's digest email preferences
+ */
+export const GetPreferencesResponse = zod.object({
+  digestHour:   zod.number().int().min(0).max(23),
+  digestMinute: zod.number().int().min(0).max(59),
+  emailEnabled: zod.boolean(),
+});
+
+export const UpdatePreferencesBody = zod.object({
+  digestHour:   zod.number().int().min(0).max(23).optional(),
+  digestMinute: zod.number().int().min(0).max(59).optional(),
+  emailEnabled: zod.boolean().optional(),
 });

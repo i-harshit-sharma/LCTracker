@@ -1,11 +1,12 @@
 /**
  * cron.ts — Scheduled jobs
  *
- * Uses node-cron to run two recurring tasks:
+ * Two recurring tasks:
  *
- *   1. Daily digest — fires at 23:59 every night (UTC).
- *      Aggregates all problems solved today by followed users and emails
- *      each registered user their personalized summary.
+ *   1. Per-user digest — fires every minute.
+ *      Looks up which users have (digestHour, digestMinute) matching the current
+ *      UTC time and sends those users their daily digest immediately.
+ *      This gives minute-level granularity for each user's chosen send time.
  *
  *   2. Polling heartbeat — fires every 5 minutes as a safety net.
  *      The poller.ts module also manages its own setTimeout loop, but this
@@ -16,19 +17,43 @@
  */
 
 import cron from "node-cron";
+import { db, userPreferencesTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { sendDailyDigests } from "./emailDigest";
 import { runPollCycle } from "./poller";
 import { logger } from "./logger";
 
 /** Register all cron jobs. Call once at server startup. */
 export function startCronJobs(): void {
-  // ─── Daily digest at 23:59 UTC ────────────────────────────────────────────
+  // ─── Per-user digest: runs every minute, matches hour+minute ─────────────
   cron.schedule(
-    "59 23 * * *",
+    "* * * * *",
     async () => {
-      logger.info("Cron: daily digest starting");
+      const now = new Date();
+      const currentHour   = now.getUTCHours();
+      const currentMinute = now.getUTCMinutes();
+
+      // Find all users whose digest time matches right now (UTC)
+      const targets = await db
+        .select({ userId: userPreferencesTable.userId })
+        .from(userPreferencesTable)
+        .where(
+          and(
+            eq(userPreferencesTable.digestHour,   currentHour),
+            eq(userPreferencesTable.digestMinute, currentMinute),
+            eq(userPreferencesTable.emailEnabled, true),
+          ),
+        );
+
+      if (!targets.length) return; // No one has their digest scheduled right now
+
+      logger.info(
+        { count: targets.length, hour: currentHour, minute: currentMinute },
+        "Cron: dispatching digest emails",
+      );
+
       try {
-        await sendDailyDigests();
+        await sendDailyDigests(targets.map((t) => t.userId));
       } catch (err) {
         logger.error({ err }, "Cron: daily digest failed");
       }
@@ -49,5 +74,5 @@ export function startCronJobs(): void {
     },
   );
 
-  logger.info("Cron jobs registered (daily digest at 23:59 UTC, poll every 5 min)");
+  logger.info("Cron jobs registered (digest per-minute with user schedules, poll every 5 min)");
 }
