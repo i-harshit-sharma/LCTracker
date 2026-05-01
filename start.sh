@@ -30,8 +30,9 @@ else
     NODE_ENV=production pm2 start "pnpm --filter @workspace/api-server run start" --name leetcode-api
 fi
 
-# 6. Reload Caddy configuration
-echo "🌐 Reloading Caddy..."
-caddy reload --config Caddyfile
+# 6. Reload or Start Caddy configuration
+echo "🌐 Updating Caddy..."
+# Try to reload. If it fails (usually because it's not running), start it fresh.
+caddy reload --config Caddyfile || caddy start --config Caddyfile
 
 echo "✅ Deployment successful! App is now up to date."
