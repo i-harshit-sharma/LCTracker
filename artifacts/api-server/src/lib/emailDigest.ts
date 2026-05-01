@@ -14,6 +14,7 @@
 
 import { db, followsTable, solvedProblemsTable } from "@workspace/db";
 import { eq, gte, lte, and, inArray } from "drizzle-orm";
+import { clerkClient } from "@clerk/express";
 import { logger } from "./logger";
 
 /**
@@ -93,9 +94,26 @@ export async function sendDailyDigests(userIds: string[]): Promise<void> {
 
     if (!activity.length) continue; // Nothing to report — skip this user
 
-    const html = buildDigestHtml(userId, usernames, solvesByUser);
+    // Resolve the user's primary email address from Clerk
+    let toEmail: string;
+    try {
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const primaryEmail = clerkUser.emailAddresses.find(
+        (e) => e.id === clerkUser.primaryEmailAddressId,
+      );
+      if (!primaryEmail?.emailAddress) {
+        logger.warn({ userId }, "No primary email found for user — skipping digest");
+        continue;
+      }
+      toEmail = primaryEmail.emailAddress;
+    } catch (err) {
+      logger.error({ err, userId }, "Failed to fetch user email from Clerk — skipping digest");
+      continue;
+    }
+
+    const html = buildDigestHtml(toEmail, usernames, solvesByUser);
     await sendEmail({
-      to: userId, // In production this would be the user's email address from Clerk
+      to: toEmail,
       subject: `Your LeetCode daily digest — ${activity.length} problem${activity.length === 1 ? "" : "s"} solved today`,
       html,
     });
