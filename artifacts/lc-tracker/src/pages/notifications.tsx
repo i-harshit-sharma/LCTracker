@@ -43,7 +43,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? "http://localhost:3000" 
+    : `${window.location.protocol}//${window.location.hostname}:3000`);
 
 async function fetchVapidPublicKey(): Promise<string> {
   const res = await fetch(`${API_BASE}/api/push/vapid-public-key`);
