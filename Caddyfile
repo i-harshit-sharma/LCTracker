@@ -1,18 +1,19 @@
-:80 {
+lc.harshits.live {
     # Compress responses
     encode gzip
 
     # Root directory for frontend assets
-    # Based on vite.config.ts, build output is in artifacts/lc-tracker/dist/public
-    root * artifacts/lc-tracker/dist/public
+    root * ./artifacts/lc-tracker/dist/public
 
-    # Proxy all /api requests to the backend server
-    reverse_proxy /api/* localhost:3000
+    # 1. API Proxy
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
 
-    # Serve static files
-    file_server
-
-    # Handle client-side routing for the React application
-    # If the file doesn't exist, fall back to index.html
-    try_files {path} {path}/ /index.html
+    # 2. Frontend
+    handle {
+        # Handle React routing: if file not found, serve index.html
+        try_files {path} {path}/ /index.html
+        file_server
+    }
 }
