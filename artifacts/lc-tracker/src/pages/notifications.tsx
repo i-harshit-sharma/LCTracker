@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { Bell, BellOff, ExternalLink, CheckCheck, Mail, Clock } from "lucide-react";
+import { Bell, BellOff, ExternalLink, CheckCheck, Mail, Clock, Smartphone, SmartphoneNfc } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,7 +33,224 @@ function formatUtcTime(hour: number, minute: number): string {
 const MINUTE_STEPS = Array.from({ length: 12 }, (_, i) => i * 5);
 const HOURS        = Array.from({ length: 24 }, (_, i) => i);
 
-// ─── Settings card ───────────────────────────────────────────────────────────
+// ─── Push helpers ─────────────────────────────────────────────────────────────
+
+/** Convert a base64url string to a Uint8Array (needed for applicationServerKey) */
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
+async function fetchVapidPublicKey(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/push/vapid-public-key`);
+  if (!res.ok) throw new Error("Failed to fetch VAPID key");
+  const data = await res.json();
+  return data.publicKey as string;
+}
+
+async function apiSubscribe(token: string, sub: PushSubscriptionJSON): Promise<void> {
+  const keys = sub.keys as { p256dh: string; auth: string };
+  await fetch(`${API_BASE}/api/push/subscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+  });
+}
+
+async function apiUnsubscribe(token: string, endpoint: string): Promise<void> {
+  await fetch(`${API_BASE}/api/push/subscribe`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ endpoint }),
+  });
+}
+
+async function apiSendMockNotification(token: string): Promise<void> {
+  await fetch(`${API_BASE}/api/push/mock`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ─── PushNotificationSettingsCard ────────────────────────────────────────────
+
+function PushNotificationSettingsCard() {
+  const { toast } = useToast();
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
+    () => {
+      if (typeof Notification === "undefined") return "unsupported";
+      return Notification.permission;
+    },
+  );
+  const [loading, setLoading] = useState(false);
+  const [currentSub, setCurrentSub] = useState<PushSubscription | null>(null);
+
+  // Check if we already have an active subscription on mount
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setCurrentSub(sub))
+      .catch(() => {});
+  }, []);
+
+  const getToken = useCallback(async (): Promise<string | null> => {
+    // Clerk exposes the session token via window.Clerk
+    try {
+      const clerk = (window as any).Clerk;
+      if (clerk?.session) return await clerk.session.getToken();
+    } catch {}
+    return null;
+  }, []);
+
+  const handleEnable = async () => {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      toast({ title: "Push notifications not supported in this browser", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+
+      if (result !== "granted") {
+        toast({
+          title: "Permission denied",
+          description: "Enable notifications in your browser settings to receive push alerts.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Subscribe via the Push Manager
+      const [vapidKey, reg] = await Promise.all([
+        fetchVapidPublicKey(),
+        navigator.serviceWorker.ready,
+      ]);
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey) as any,
+      });
+
+      setCurrentSub(sub);
+
+      // Persist to API
+      const token = await getToken();
+      if (token) {
+        await apiSubscribe(token, sub.toJSON());
+        // Send a mock notification to verify setup
+        await apiSendMockNotification(token);
+        toast({ title: "🔔 Push notifications enabled!" });
+      } else {
+        toast({
+          title: "Subscribed locally",
+          description: "Could not save to server — please reload and try again.",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Failed to enable push notifications", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!currentSub) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (token) await apiUnsubscribe(token, currentSub.endpoint);
+      await currentSub.unsubscribe();
+      setCurrentSub(null);
+      toast({ title: "Push notifications disabled" });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Failed to disable notifications", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isSubscribed = !!currentSub && permission === "granted";
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <SmartphoneNfc className="h-4 w-4 text-primary" />
+          Browser Push Notifications
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {permission === "unsupported" ? (
+          <p className="text-sm text-muted-foreground">
+            Push notifications are not supported in this browser.
+          </p>
+        ) : permission === "denied" ? (
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 space-y-1">
+            <p className="text-sm font-medium text-destructive">Notifications blocked</p>
+            <p className="text-xs text-muted-foreground">
+              You've blocked notifications for this site. To re-enable them, click the lock icon
+              in your browser's address bar and allow notifications, then refresh the page.
+            </p>
+          </div>
+        ) : isSubscribed ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
+              <span className="font-medium">Push notifications active</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You'll receive a notification whenever someone you follow solves a LeetCode problem —
+              with a direct link to try it yourself!
+            </p>
+            <Button
+              id="disable-push-notifications"
+              variant="outline"
+              size="sm"
+              onClick={handleDisable}
+              disabled={loading}
+              className="text-muted-foreground hover:text-destructive hover:border-destructive"
+            >
+              <Smartphone className="h-3.5 w-3.5 mr-1.5" />
+              {loading ? "Disabling…" : "Disable push notifications"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Get notified instantly</p>
+              <p className="text-xs text-muted-foreground">
+                Allow push notifications and we'll alert you the moment a followed user solves a
+                new problem — so you can try it too!
+              </p>
+            </div>
+            <Button
+              id="enable-push-notifications"
+              size="sm"
+              onClick={handleEnable}
+              disabled={loading}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Bell className="h-3.5 w-3.5 mr-1.5" />
+              {loading ? "Requesting permission…" : "Enable push notifications"}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Email Settings card ──────────────────────────────────────────────────────
 
 function EmailSettingsCard() {
   const { toast } = useToast();
@@ -367,6 +584,9 @@ export default function NotificationsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ── Push notification settings ── */}
+        <PushNotificationSettingsCard />
 
         {/* ── Email settings ── */}
         <EmailSettingsCard />

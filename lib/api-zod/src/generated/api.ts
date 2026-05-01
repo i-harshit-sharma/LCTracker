@@ -186,3 +186,24 @@ export const UpdatePreferencesBody = zod.object({
   digestMinute: zod.number().int().min(0).max(59).optional(),
   emailEnabled: zod.boolean().optional(),
 });
+
+/**
+ * @summary Push notification subscription management
+ */
+export const VapidPublicKeyResponse = zod.object({
+  publicKey: zod.string(),
+});
+
+export const SavePushSubscriptionBody = zod.object({
+  endpoint: zod.string().url(),
+  p256dh: zod.string().min(1),
+  auth: zod.string().min(1),
+});
+
+export const DeletePushSubscriptionBody = zod.object({
+  endpoint: zod.string().url(),
+});
+
+export const PushSubscribeResponse = zod.object({
+  success: zod.boolean(),
+});

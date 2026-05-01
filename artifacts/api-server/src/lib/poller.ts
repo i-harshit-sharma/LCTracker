@@ -25,6 +25,7 @@ import {
   INTER_USER_DELAY_MS,
 } from "./leetcode";
 import { logger } from "./logger";
+import { sendPushNotificationsForUser } from "./pushNotification";
 
 /** How often we run a full poll cycle, in milliseconds */
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5 * 60 * 1_000);
@@ -204,6 +205,31 @@ async function pollUser(username: string): Promise<void> {
   logger.info(
     { username, followers: followers.length, problems: newSubmissions.length },
     "Notifications dispatched",
+  );
+
+  // 7. Send browser push notifications to opted-in followers
+  //    One push per follower, summarising all newly solved problems in a single message.
+  //    If a user solved multiple problems we list up to 2 titles, then "and N more".
+  const problemTitles = rows.map((r) => r.problemTitle);
+  const previewTitles =
+    problemTitles.length <= 2
+      ? problemTitles.join(" & ")
+      : `${problemTitles.slice(0, 2).join(", ")} and ${problemTitles.length - 2} more`;
+
+  // Use the first problem's slug for the click-through URL
+  const firstSlug = rows[0]?.problemSlug ?? "";
+
+  await Promise.all(
+    followers.map((follower) =>
+      sendPushNotificationsForUser(follower.userId, {
+        title: `🔥 ${username} just solved a problem!`,
+        body: `"${previewTitles}" — try it yourself!`,
+        url: firstSlug
+          ? `https://leetcode.com/problems/${firstSlug}/`
+          : "https://leetcode.com/",
+        icon: "/logo.svg",
+      }),
+    ),
   );
 }
 
