@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "LeetCode Tracker"
+version = "1.0.0"
+id = "artifacts/lc-tracker"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22719
+
+[services.development]
+run = "pnpm --filter @workspace/lc-tracker run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/lc-tracker", "run", "build" ]
+publicDir = "artifacts/lc-tracker/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22719"
+BASE_PATH = "/"

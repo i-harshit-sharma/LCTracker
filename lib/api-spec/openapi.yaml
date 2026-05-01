@@ -1,0 +1,407 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: LeetCode Tracker API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: follows
+    description: Follow/unfollow LeetCode profiles
+  - name: notifications
+    description: In-app notifications
+  - name: activity
+    description: Activity feed for followed profiles
+  - name: profiles
+    description: LeetCode profile data
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /follows:
+    get:
+      operationId: listFollows
+      tags: [follows]
+      summary: List all LeetCode profiles the current user follows
+      responses:
+        "200":
+          description: List of follows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Follow"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: createFollow
+      tags: [follows]
+      summary: Follow a LeetCode username
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFollowBody"
+      responses:
+        "201":
+          description: Follow created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Follow"
+        "400":
+          description: Invalid username or already following
+        "401":
+          description: Unauthorized
+
+  /follows/{id}:
+    delete:
+      operationId: deleteFollow
+      tags: [follows]
+      summary: Unfollow a LeetCode profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Unfollowed successfully
+        "404":
+          description: Follow not found
+        "401":
+          description: Unauthorized
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for the current user
+      parameters:
+        - name: unreadOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          description: Unauthorized
+
+  /notifications/read-all:
+    put:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required:
+                  - success
+        "401":
+          description: Unauthorized
+
+  /notifications/{id}/read:
+    put:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a single notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          description: Notification not found
+        "401":
+          description: Unauthorized
+
+  /activity:
+    get:
+      operationId: listActivity
+      tags: [activity]
+      summary: Recent problems solved by followed users
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SolvedProblem"
+        "401":
+          description: Unauthorized
+
+  /activity/stats:
+    get:
+      operationId: getActivityStats
+      tags: [activity]
+      summary: Aggregate activity stats for today and this week
+      responses:
+        "200":
+          description: Activity stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityStats"
+        "401":
+          description: Unauthorized
+
+  /activity/leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [activity]
+      summary: Followed users ranked by weekly solve count
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+        "401":
+          description: Unauthorized
+
+  /profiles/{username}:
+    get:
+      operationId: getLeetcodeProfile
+      tags: [profiles]
+      summary: Get a LeetCode profile with recent solved problems and following list
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeetcodeProfile"
+        "404":
+          description: Profile not found
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Follow:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        leetcodeUsername:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        totalSolved:
+          type: ["integer", "null"]
+        lastPolledAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - leetcodeUsername
+        - createdAt
+
+    CreateFollowBody:
+      type: object
+      properties:
+        leetcodeUsername:
+          type: string
+      required:
+        - leetcodeUsername
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+        leetcodeUsername:
+          type: ["string", "null"]
+        problemTitle:
+          type: ["string", "null"]
+        problemSlug:
+          type: ["string", "null"]
+        difficulty:
+          type: ["string", "null"]
+        read:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - message
+        - type
+        - read
+        - createdAt
+
+    SolvedProblem:
+      type: object
+      properties:
+        id:
+          type: integer
+        leetcodeUsername:
+          type: string
+        problemSlug:
+          type: string
+        problemTitle:
+          type: string
+        difficulty:
+          type: string
+        solvedAt:
+          type: string
+        titleSlug:
+          type: ["string", "null"]
+      required:
+        - id
+        - leetcodeUsername
+        - problemSlug
+        - problemTitle
+        - difficulty
+        - solvedAt
+
+    ActivityStats:
+      type: object
+      properties:
+        solvedToday:
+          type: integer
+        solvedThisWeek:
+          type: integer
+        topDifficulty:
+          type: string
+        mostActiveUser:
+          type: ["string", "null"]
+      required:
+        - solvedToday
+        - solvedThisWeek
+        - topDifficulty
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        leetcodeUsername:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        solvedThisWeek:
+          type: integer
+        totalSolved:
+          type: ["integer", "null"]
+      required:
+        - leetcodeUsername
+        - solvedThisWeek
+
+    LeetcodeFollowingEntry:
+      type: object
+      properties:
+        username:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+      required:
+        - username
+
+    LeetcodeProfile:
+      type: object
+      properties:
+        leetcodeUsername:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        totalSolved:
+          type: ["integer", "null"]
+        easySolved:
+          type: ["integer", "null"]
+        mediumSolved:
+          type: ["integer", "null"]
+        hardSolved:
+          type: ["integer", "null"]
+        recentProblems:
+          type: array
+          items:
+            $ref: "#/components/schemas/SolvedProblem"
+        following:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeetcodeFollowingEntry"
+      required:
+        - leetcodeUsername
+        - recentProblems
+        - following
