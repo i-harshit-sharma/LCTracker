@@ -240,7 +240,7 @@ export default function DashboardPage() {
                   </div>
                 ) : !Array.isArray(leaderboard) || leaderboard.length === 0 ? (
                   <div className="px-5 py-10 text-center text-muted-foreground text-sm">
-                    {lbScope === "following" 
+                    {lbScope === "following"
                       ? "Follow some users to see the leaderboard."
                       : "No activity in the database yet."}
                   </div>
@@ -253,15 +253,14 @@ export default function DashboardPage() {
                         data-testid={`leaderboard-entry-${entry.leetcodeUsername}`}
                       >
                         <div
-                          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${
-                            idx === 0
+                          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${idx === 0
                               ? "bg-yellow-400/20 text-yellow-400"
                               : idx === 1
-                              ? "bg-slate-400/20 text-slate-400"
-                              : idx === 2
-                              ? "bg-orange-700/20 text-orange-700"
-                              : "bg-muted text-muted-foreground"
-                          }`}
+                                ? "bg-slate-400/20 text-slate-400"
+                                : idx === 2
+                                  ? "bg-orange-700/20 text-orange-700"
+                                  : "bg-muted text-muted-foreground"
+                            }`}
                         >
                           {idx + 1}
                         </div>
