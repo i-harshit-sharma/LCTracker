@@ -193,6 +193,7 @@ function MyProfileBanner({
 export default function DashboardPage() {
   const [lbScope, setLbScope] = useState<"following" | "global">("following");
   const [lbPeriod, setLbPeriod] = useState<string>("week");
+  const [actFilter, setActFilter] = useState<"all" | "unsolved">("all");
   const weeks = generateWeeks();
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod as any });
@@ -268,6 +269,15 @@ export default function DashboardPage() {
       : []),
   ]);
 
+  const filteredActivity = Array.isArray(activity)
+    ? activity.filter((item) => {
+      if (actFilter === "unsolved") {
+        return !mySolvedSlugs.has(item.problemSlug.toLowerCase());
+      }
+      return true;
+    })
+    : [];
+
   const periodLabels: Record<string, string> = {
     day: "today",
     week: "this week",
@@ -339,17 +349,33 @@ export default function DashboardPage() {
           {/* Activity feed */}
           <div className="lg:col-span-2">
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Activity className="h-4 w-4 text-primary" />
                   Activity Feed
+                </CardTitle>
+                <div className="flex items-center gap-4">
+                  <Tabs
+                    value={actFilter}
+                    onValueChange={(v) => setActFilter(v as "all" | "unsolved")}
+                    className="w-auto"
+                  >
+                    <TabsList className="h-7 p-0.5 bg-muted/50">
+                      <TabsTrigger value="all" className="text-[10px] px-2 h-6">
+                        All
+                      </TabsTrigger>
+                      <TabsTrigger value="unsolved" className="text-[10px] px-2 h-6">
+                        Unsolved
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                   {myUsername && (
-                    <span className="ml-auto text-xs font-normal text-muted-foreground flex items-center gap-1">
+                    <span className="text-[10px] font-normal text-muted-foreground flex items-center gap-1 max-sm:hidden">
                       <CheckCircle2 className="h-3 w-3 text-green-500" />
-                      = you've solved it
+                      = solved
                     </span>
                   )}
-                </CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 {actLoading ? (
@@ -364,17 +390,23 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
-                ) : !Array.isArray(activity) || activity.length === 0 ? (
+                ) : filteredActivity.length === 0 ? (
                   <div className="px-5 py-12 text-center text-muted-foreground text-sm">
-                    No activity yet.{" "}
-                    <Link href="/follows" className="text-primary hover:underline">
-                      Follow some LeetCode users
-                    </Link>{" "}
-                    to see their activity here.
+                    {actFilter === "unsolved" ? (
+                      <>You've solved everything in this feed! ✨</>
+                    ) : (
+                      <>
+                        No activity yet.{" "}
+                        <Link href="/follows" className="text-primary hover:underline">
+                          Follow some LeetCode users
+                        </Link>{" "}
+                        to see their activity here.
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="divide-y divide-border max-h-[520px] overflow-y-auto">
-                    {activity.map((item) => {
+                    {filteredActivity.map((item) => {
                       const solved = !!myUsername && mySolvedSlugs.has(item.problemSlug.toLowerCase());
                       return (
                         <div
@@ -557,7 +589,7 @@ export default function DashboardPage() {
                   }
 
                   return (
-                    <div className="divide-y divide-border">
+                    <div className="divide-y divide-border max-h-[520px] overflow-y-auto">
                       {merged.map((entry, idx) => {
                         const isMe = !!entry._isMe;
                         return (
