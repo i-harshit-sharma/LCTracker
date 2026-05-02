@@ -1,39 +1,32 @@
-import { useState, useEffect } from "react";
-
-const STORAGE_KEY = "lc_my_username";
+import { useCallback } from "react";
+import { 
+  useGetPreferences, 
+  useUpdatePreferences, 
+  getGetPreferencesQueryKey 
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function useMyProfile() {
-  const [myUsername, setMyUsernameState] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) || null;
-    } catch {
-      return null;
-    }
-  });
+  const queryClient = useQueryClient();
+  const { data: prefs, isLoading } = useGetPreferences();
+  const updatePrefs = useUpdatePreferences();
 
-  const setMyUsername = (username: string | null) => {
-    try {
-      if (username) {
-        localStorage.setItem(STORAGE_KEY, username.trim());
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    } catch {
-      // ignore
-    }
-    setMyUsernameState(username ? username.trim() : null);
-  };
+  const myUsername = prefs?.leetcodeUsername || null;
 
-  // Sync if another tab changes it
-  useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        setMyUsernameState(e.newValue || null);
-      }
-    };
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
+  const setMyUsername = useCallback((username: string | null) => {
+    const newUsername = username ? username.trim() : null;
+    
+    // Optimistically update the cache to show instant UI change
+    queryClient.setQueryData(getGetPreferencesQueryKey(), (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        leetcodeUsername: newUsername,
+      };
+    });
+    
+    updatePrefs.mutate({ data: { leetcodeUsername: newUsername } });
+  }, [queryClient, updatePrefs]);
 
-  return { myUsername, setMyUsername };
+  return { myUsername, setMyUsername, isLoading };
 }

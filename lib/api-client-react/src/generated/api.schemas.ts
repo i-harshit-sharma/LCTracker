@@ -132,12 +132,16 @@ export interface UserPreferences {
   digestHour: number;
   digestMinute: number;
   emailEnabled: boolean;
+  /** @nullable */
+  leetcodeUsername?: string | null;
 }
 
 export interface UpdatePreferencesBody {
   digestHour?: number;
   digestMinute?: number;
   emailEnabled?: boolean;
+  /** @nullable */
+  leetcodeUsername?: string | null;
 }
 
 export type GetDbProfileSummaryParams = {

@@ -182,12 +182,14 @@ export const GetPreferencesResponse = zod.object({
   digestHour:   zod.number().int().min(0).max(23),
   digestMinute: zod.number().int().min(0).max(59),
   emailEnabled: zod.boolean(),
+  leetcodeUsername: zod.string().nullish(),
 });
 
 export const UpdatePreferencesBody = zod.object({
   digestHour:   zod.number().int().min(0).max(23).optional(),
   digestMinute: zod.number().int().min(0).max(59).optional(),
   emailEnabled: zod.boolean().optional(),
+  leetcodeUsername: zod.string().nullish(),
 });
 
 /**

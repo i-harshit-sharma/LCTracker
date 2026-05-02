@@ -167,7 +167,7 @@ export default function DashboardPage() {
   const [lbPeriod, setLbPeriod] = useState<"day" | "week" | "month" | "year" | "all">("week");
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod });
-  const { myUsername, setMyUsername } = useMyProfile();
+  const { myUsername, setMyUsername, isLoading: profileLoading } = useMyProfile();
   const { data: activity, isLoading: actLoading } = useListActivity({ 
     limit: 30,
     ...(myUsername ? { myUsername } : {})
@@ -260,7 +260,11 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <MyProfileBanner myUsername={myUsername} setMyUsername={setMyUsername} />
+            {profileLoading ? (
+              <Skeleton className="h-8 w-[200px]" />
+            ) : (
+              <MyProfileBanner myUsername={myUsername} setMyUsername={setMyUsername} />
+            )}
             {/* <Link href="/follows" className="max-sm:hidden">
               <span className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline cursor-pointer">
                 <Users className="h-3.5 w-3.5" />

@@ -40,6 +40,7 @@ router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
       digestHour:   prefs.digestHour,
       digestMinute: prefs.digestMinute,
       emailEnabled: prefs.emailEnabled,
+      leetcodeUsername: prefs.leetcodeUsername,
     }),
   );
 });
@@ -53,13 +54,14 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { digestHour, digestMinute, emailEnabled } = parsed.data;
+  const { digestHour, digestMinute, emailEnabled, leetcodeUsername } = parsed.data;
 
   // Build the patch — only update fields that were supplied
   const patch: Partial<typeof parsed.data & { updatedAt: Date }> = { updatedAt: new Date() };
   if (digestHour   !== undefined) patch.digestHour   = digestHour;
   if (digestMinute !== undefined) patch.digestMinute = digestMinute;
   if (emailEnabled !== undefined) patch.emailEnabled = emailEnabled;
+  if (leetcodeUsername !== undefined) patch.leetcodeUsername = leetcodeUsername;
 
   const [updated] = await db
     .insert(userPreferencesTable)
@@ -80,6 +82,7 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
       digestHour:   updated.digestHour,
       digestMinute: updated.digestMinute,
       emailEnabled: updated.emailEnabled,
+      leetcodeUsername: updated.leetcodeUsername,
     }),
   );
 });
