@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ExternalLink, Trophy, Activity, TrendingUp, Users, Flame } from "lucide-react";
+import { ExternalLink, Trophy, Activity, TrendingUp, Users, Flame, CheckCircle2, User, X, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DifficultyBadge } from "@/components/DifficultyBadge";
@@ -8,10 +8,17 @@ import {
   useGetActivityStats,
   useGetLeaderboard,
   useListActivity,
+  useGetDbProfileSummary,
+  getGetDbProfileSummaryQueryKey,
+  useSaveProfileToDb,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMyProfile } from "@/hooks/use-my-profile";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 function StatCard({
   label,
@@ -43,12 +50,175 @@ function StatCard({
   );
 }
 
+/** Banner that lets the user set/update their own LC username */
+function MyProfileBanner({
+  myUsername,
+  setMyUsername,
+}: {
+  myUsername: string | null;
+  setMyUsername: (u: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(!myUsername);
+  const [draft, setDraft] = useState(myUsername ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim();
+    if (trimmed) {
+      setMyUsername(trimmed);
+      setEditing(false);
+    }
+  }, [draft, setMyUsername]);
+
+  const cancel = useCallback(() => {
+    if (myUsername) {
+      setDraft(myUsername);
+      setEditing(false);
+    }
+  }, [myUsername]);
+
+  const startEdit = () => {
+    setDraft(myUsername ?? "");
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const clear = () => {
+    setMyUsername(null);
+    setDraft("");
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  if (!editing && myUsername) {
+    return (
+      <div
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 bg-primary/5 text-sm"
+        data-testid="my-profile-banner"
+      >
+        <User className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="text-muted-foreground">Viewing as</span>
+        <span className="font-semibold text-primary font-mono">@{myUsername}</span>
+        <button
+          onClick={startEdit}
+          className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+          title="Change username"
+          data-testid="my-profile-edit-btn"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+        <button
+          onClick={clear}
+          className="text-muted-foreground hover:text-destructive transition-colors"
+          title="Clear"
+          data-testid="my-profile-clear-btn"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); commit(); }}
+      className="flex items-center gap-2"
+      data-testid="my-profile-form"
+    >
+      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <Input
+        ref={inputRef}
+        id="my-lc-username"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Your LeetCode username"
+        className="h-7 text-xs w-44 font-mono"
+        autoComplete="off"
+        spellCheck={false}
+        data-testid="my-profile-input"
+      />
+      <Button
+        type="submit"
+        size="sm"
+        className="h-7 px-3 text-xs glow-orange"
+        disabled={!draft.trim()}
+        data-testid="my-profile-save-btn"
+      >
+        Save
+      </Button>
+      {myUsername && (
+        <button
+          type="button"
+          onClick={cancel}
+          className="text-muted-foreground hover:text-foreground transition-colors p-1"
+          title="Cancel"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </form>
+  );
+}
+
 export default function DashboardPage() {
   const [lbScope, setLbScope] = useState<"following" | "global">("following");
   const [lbPeriod, setLbPeriod] = useState<"day" | "week" | "month" | "year" | "all">("week");
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod });
   const { data: activity, isLoading: actLoading } = useListActivity({ limit: 30 });
+
+  const { myUsername, setMyUsername } = useMyProfile();
+  const queryClient = useQueryClient();
+
+  // DB-only fetch of the viewer's own profile — never touches the live LeetCode
+  // API and never inserts the user into the global leetcode_profiles table.
+  // Returns undefined (silently) when the user hasn't been crawled yet.
+  const { data: myDbSummary, refetch: refetchDbSummary } = useGetDbProfileSummary(
+    myUsername!,
+    { period: lbPeriod },
+    {
+      query: {
+        enabled: !!myUsername,
+        queryKey: getGetDbProfileSummaryQueryKey(myUsername!, { period: lbPeriod }),
+        // 404 means "not in DB" — treat as undefined, don't throw
+        retry: false,
+      },
+    },
+  );
+
+  // Mutation to seed the viewer's profile into the DB (no follow row created)
+  const { mutate: saveToDb, isPending: isSaving, isSuccess: savedOk, isError: saveError } =
+    useSaveProfileToDb({
+      mutation: {
+        onSuccess: () => {
+          // Invalidate the db-summary query so the leaderboard row refreshes
+          queryClient.invalidateQueries({
+            queryKey: getGetDbProfileSummaryQueryKey(myUsername!, { period: lbPeriod }),
+          });
+        },
+      },
+    });
+
+  // Also refetch whenever the save succeeds (belt-and-suspenders)
+  useEffect(() => {
+    if (savedOk && myUsername) {
+      refetchDbSummary();
+    }
+  }, [savedOk, myUsername, refetchDbSummary]);
+
+  // Build the set of solved slugs from the activity feed items that belong to
+  // the viewer (cheapest way since activity is already fetched).
+  const mySolvedSlugs = new Set(
+    Array.isArray(activity)
+      ? activity
+        .filter(
+          (item) =>
+            !!myUsername &&
+            item.leetcodeUsername.toLowerCase() === myUsername.toLowerCase(),
+        )
+        .map((item) => item.problemSlug.toLowerCase())
+      : [],
+  );
 
   const periodLabels: Record<string, string> = {
     day: "today",
@@ -63,19 +233,22 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Your network's real-time (within 5 mins) LeetCode activity
             </p>
           </div>
-          <Link href="/follows" className="max-sm:hidden">
-            <span className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline cursor-pointer">
-              <Users className="h-3.5 w-3.5" />
-              Manage follows
-            </span>
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap">
+            <MyProfileBanner myUsername={myUsername} setMyUsername={setMyUsername} />
+            {/* <Link href="/follows" className="max-sm:hidden">
+              <span className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline cursor-pointer">
+                <Users className="h-3.5 w-3.5" />
+                Manage follows
+              </span>
+            </Link> */}
+          </div>
         </div>
 
         {/* Stats row */}
@@ -114,6 +287,12 @@ export default function DashboardPage() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Activity className="h-4 w-4 text-primary" />
                   Activity Feed
+                  {myUsername && (
+                    <span className="ml-auto text-xs font-normal text-muted-foreground flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      = you've solved it
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -139,48 +318,67 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="divide-y divide-border max-h-[520px] overflow-y-auto">
-                    {activity.map((item) => (
-                      <div
-                        key={item.id}
-                        className="px-5 py-3.5 flex gap-3 items-start hover:bg-muted/30 transition-colors"
-                        data-testid={`activity-item-${item.id}`}
-                      >
-                        <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          {item.leetcodeUsername[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                            <Link
-                              href={`/profiles/${item.leetcodeUsername}`}
-                              className="font-semibold text-sm hover:text-primary transition-colors"
-                            >
-                              {item.leetcodeUsername}
-                            </Link>
-                            <span className="text-sm text-muted-foreground">solved</span>
-                            <a
-                              href={`https://leetcode.com/problems/${item.problemSlug}/`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-0.5"
-                              data-testid={`link-problem-${item.id}`}
-                            >
-                              {item.problemTitle}
-                              <ExternalLink className="h-3 w-3 opacity-50" />
-                            </a>
+                    {activity.map((item) => {
+                      const solved = !!myUsername && mySolvedSlugs.has(item.problemSlug.toLowerCase());
+                      return (
+                        <div
+                          key={item.id}
+                          className={`px-5 py-3.5 flex gap-3 items-start transition-colors ${solved
+                              ? "bg-green-500/5 hover:bg-green-500/10"
+                              : "hover:bg-muted/30"
+                            }`}
+                          data-testid={`activity-item-${item.id}`}
+                        >
+                          <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                            {item.leetcodeUsername[0].toUpperCase()}
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <DifficultyBadge difficulty={item.difficulty} />
-                            <span className="text-xs text-muted-foreground">
-                              {(() => {
-                                const date = new Date(item.solvedAt);
-                                const finalDate = date > new Date() ? new Date() : date;
-                                return formatDistanceToNow(finalDate, { addSuffix: true });
-                              })()}
-                            </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                              <Link
+                                href={`/profiles/${item.leetcodeUsername}`}
+                                className="font-semibold text-sm hover:text-primary transition-colors"
+                              >
+                                {item.leetcodeUsername}
+                              </Link>
+                              <span className="text-sm text-muted-foreground">solved</span>
+                              <a
+                                href={`https://leetcode.com/problems/${item.problemSlug}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-0.5"
+                                data-testid={`link-problem-${item.id}`}
+                              >
+                                {item.problemTitle}
+                                <ExternalLink className="h-3 w-3 opacity-50" />
+                              </a>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <DifficultyBadge difficulty={item.difficulty} />
+                              <span className="text-xs text-muted-foreground">
+                                {(() => {
+                                  const date = new Date(item.solvedAt);
+                                  const finalDate = date > new Date() ? new Date() : date;
+                                  return formatDistanceToNow(finalDate, { addSuffix: true });
+                                })()}
+                              </span>
+                            </div>
                           </div>
+                          {/* Solved tick */}
+                          {myUsername && (
+                            <div className="shrink-0 flex items-center pt-0.5" title={solved ? "You've solved this!" : "Not solved yet"}>
+                              {solved ? (
+                                <CheckCircle2
+                                  className="h-4 w-4 text-green-500"
+                                  data-testid={`solved-tick-${item.id}`}
+                                />
+                              ) : (
+                                <div className="h-4 w-4 rounded-full border border-muted-foreground/25" />
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -244,58 +442,165 @@ export default function DashboardPage() {
                       ? "Follow some users to see the leaderboard."
                       : "No activity in the database yet."}
                   </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {leaderboard.map((entry, idx) => (
-                      <div
-                        key={entry.leetcodeUsername}
-                        className="px-5 py-3 flex gap-3 items-center hover:bg-muted/30 transition-colors"
-                        data-testid={`leaderboard-entry-${entry.leetcodeUsername}`}
-                      >
-                        <div
-                          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${idx === 0
-                            ? "bg-yellow-400/20 text-yellow-400"
-                            : idx === 1
-                              ? "bg-slate-400/20 text-slate-400"
-                              : idx === 2
-                                ? "bg-orange-700/20 text-orange-700"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                        >
-                          {idx + 1}
-                        </div>
-                        {entry.avatarUrl ? (
-                          <img
-                            src={entry.avatarUrl}
-                            alt={entry.leetcodeUsername}
-                            className="h-8 w-8 rounded-full object-cover ring-1 ring-border"
-                          />
-                        ) : (
-                          <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                            {entry.leetcodeUsername[0].toUpperCase()}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            href={`/profiles/${entry.leetcodeUsername}`}
-                            className="font-semibold text-sm hover:text-primary transition-colors block truncate"
+                ) : (() => {
+                  // Check if the viewer is already in the leaderboard
+                  const myLower = myUsername?.toLowerCase();
+                  const myLbIdx = myLower
+                    ? leaderboard.findIndex(
+                      (e) => e.leetcodeUsername.toLowerCase() === myLower,
+                    )
+                    : -1;
+                  const isMeInBoard = myLbIdx !== -1;
+
+                  return (
+                    <div className="divide-y divide-border">
+                      {leaderboard.map((entry, idx) => {
+                        const isMe =
+                          !!myLower &&
+                          entry.leetcodeUsername.toLowerCase() === myLower;
+                        return (
+                          <div
+                            key={entry.leetcodeUsername}
+                            className={`px-5 py-3 flex gap-3 items-center transition-colors ${isMe
+                                ? "bg-primary/5 ring-1 ring-inset ring-primary/20 hover:bg-primary/10"
+                                : "hover:bg-muted/30"
+                              }`}
+                            data-testid={`leaderboard-entry-${entry.leetcodeUsername}`}
                           >
-                            {entry.displayName ?? entry.leetcodeUsername}
-                          </Link>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {entry.leetcodeUsername}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-bold text-sm text-primary">
-                            {entry.solvedInPeriod}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                            <div
+                              className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${idx === 0
+                                  ? "bg-yellow-400/20 text-yellow-400"
+                                  : idx === 1
+                                    ? "bg-slate-400/20 text-slate-400"
+                                    : idx === 2
+                                      ? "bg-orange-700/20 text-orange-700"
+                                      : "bg-muted text-muted-foreground"
+                                }`}
+                            >
+                              {idx + 1}
+                            </div>
+                            {entry.avatarUrl ? (
+                              <img
+                                src={entry.avatarUrl}
+                                alt={entry.leetcodeUsername}
+                                className={`h-8 w-8 rounded-full object-cover ${isMe
+                                    ? "ring-2 ring-primary"
+                                    : "ring-1 ring-border"
+                                  }`}
+                              />
+                            ) : (
+                              <div
+                                className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm ${isMe
+                                    ? "bg-primary/20 text-primary ring-2 ring-primary"
+                                    : "bg-primary/10 text-primary"
+                                  }`}
+                              >
+                                {entry.leetcodeUsername[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <Link
+                                  href={`/profiles/${entry.leetcodeUsername}`}
+                                  className="font-semibold text-sm hover:text-primary transition-colors truncate"
+                                >
+                                  {entry.displayName ?? entry.leetcodeUsername}
+                                </Link>
+                                {isMe && (
+                                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground leading-none">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {entry.leetcodeUsername}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className={`font-bold text-sm ${isMe ? "text-primary" : "text-primary"}`}>
+                                {entry.solvedInPeriod}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Pinned self row when not in the ranked leaderboard.
+                          Uses DB-only data (myDbSummary) — never triggers a live
+                          LeetCode API call or adds the user to the global pool. */}
+                      {myUsername && !isMeInBoard && (
+                        <>
+                          <div className="px-4 py-1.5 flex items-center gap-2">
+                            <div className="flex-1 border-t border-dashed border-border" />
+                            <span className="text-[10px] text-muted-foreground shrink-0">you</span>
+                            <div className="flex-1 border-t border-dashed border-border" />
+                          </div>
+                          <div
+                            className="px-5 py-3 flex gap-3 items-center bg-primary/5 ring-1 ring-inset ring-primary/20"
+                            data-testid="leaderboard-entry-self"
+                          >
+                            <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                              —
+                            </div>
+                            {myDbSummary?.avatarUrl ? (
+                              <img
+                                src={myDbSummary.avatarUrl}
+                                alt={myUsername}
+                                className="h-8 w-8 rounded-full object-cover ring-2 ring-primary"
+                              />
+                            ) : (
+                              <div className="shrink-0 h-8 w-8 rounded-full bg-primary/20 text-primary ring-2 ring-primary flex items-center justify-center font-bold text-sm">
+                                {myUsername[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <Link
+                                  href={`/profiles/${myUsername}`}
+                                  className="font-semibold text-sm hover:text-primary transition-colors truncate"
+                                >
+                                  {myDbSummary?.displayName ?? myUsername}
+                                </Link>
+                                <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground leading-none">
+                                  You
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {myDbSummary ? myUsername : "click Save to DB →"}
+                              </p>
+                            </div>
+                            <div
+                              className="text-right shrink-0"
+                              title={
+                                myDbSummary
+                                  ? `${myDbSummary.solvedInPeriod} solved ${periodLabels[lbPeriod]}`
+                                  : "Not crawled yet — follow yourself to track"
+                              }
+                            >
+                              {myDbSummary ? (
+                                <>
+                                  <p className="font-bold text-sm text-primary">{myDbSummary.solvedInPeriod}</p>
+                                  <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
+                                </>
+                              ) : (
+                                <button
+                                  id="save-my-profile-btn"
+                                  onClick={() => myUsername && saveToDb({ username: myUsername })}
+                                  disabled={isSaving}
+                                  className="text-[10px] font-semibold text-primary hover:underline disabled:opacity-50 disabled:cursor-wait text-right"
+                                  title="Fetch your profile from LeetCode and save to DB"
+                                >
+                                  {isSaving ? "Saving…" : saveError ? "Retry save" : "Save to DB"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>

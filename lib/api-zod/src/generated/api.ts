@@ -207,3 +207,21 @@ export const DeletePushSubscriptionBody = zod.object({
 export const PushSubscribeResponse = zod.object({
   success: zod.boolean(),
 });
+
+/**
+ * @summary DB-only profile summary (no live LC API, no inserts)
+ */
+export const GetDbProfileSummaryParams = zod.object({
+  username: zod.coerce.string(),
+  period: zod.enum(["day", "week", "month", "year", "all"]).optional(),
+});
+
+export const GetDbProfileSummaryResponse = zod.object({
+  leetcodeUsername: zod.string(),
+  displayName: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  totalSolved: zod.number().nullish(),
+  /** Problems solved within the requested period */
+  solvedInPeriod: zod.number(),
+  inDatabase: zod.boolean(),
+});

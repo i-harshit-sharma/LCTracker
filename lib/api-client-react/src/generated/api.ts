@@ -19,7 +19,9 @@ import type {
 import type {
   ActivityStats,
   CreateFollowBody,
+  DbProfileSummary,
   Follow,
+  GetDbProfileSummaryParams,
   HealthStatus,
   LeaderboardEntry,
   LeetcodeProfile,
@@ -1120,3 +1122,190 @@ export const useUpdatePreferences = <
   { data: BodyType<UpdatePreferencesBody> },
   TContext
 > => useMutation(getUpdatePreferencesMutationOptions(options));
+
+/**
+ * @summary DB-only profile summary — no live LeetCode fetch, no inserts
+ */
+export const getGetDbProfileSummaryUrl = (
+  username: string,
+  params?: GetDbProfileSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+  const stringifiedParams = normalizedParams.toString();
+  return stringifiedParams.length > 0
+    ? `/api/profiles/${username}/db-summary?${stringifiedParams}`
+    : `/api/profiles/${username}/db-summary`;
+};
+
+export const getDbProfileSummary = async (
+  username: string,
+  params?: GetDbProfileSummaryParams,
+  options?: RequestInit,
+): Promise<DbProfileSummary> => {
+  return customFetch<DbProfileSummary>(
+    getGetDbProfileSummaryUrl(username, params),
+    { ...options, method: "GET" },
+  );
+};
+
+export const getGetDbProfileSummaryQueryKey = (
+  username: string,
+  params?: GetDbProfileSummaryParams,
+) => {
+  return [
+    `/api/profiles/${username}/db-summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetDbProfileSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDbProfileSummary>>,
+  TError = ErrorType<void>,
+>(
+  username: string,
+  params?: GetDbProfileSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDbProfileSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDbProfileSummaryQueryKey(username, params);
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDbProfileSummary>>
+  > = ({ signal }) =>
+    getDbProfileSummary(username, params, { signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDbProfileSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDbProfileSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDbProfileSummary>>
+>;
+export type GetDbProfileSummaryQueryError = ErrorType<void>;
+
+/**
+ * @summary DB-only profile summary — no live LeetCode fetch, no inserts
+ */
+export function useGetDbProfileSummary<
+  TData = Awaited<ReturnType<typeof getDbProfileSummary>>,
+  TError = ErrorType<void>,
+>(
+  username: string,
+  params?: GetDbProfileSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDbProfileSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDbProfileSummaryQueryOptions(
+    username,
+    params,
+    options,
+  );
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+// ---------------------------------------------------------------------------
+// Save profile to DB — POST /api/profiles/:username/save
+// ---------------------------------------------------------------------------
+
+/**
+ * @summary Seed a LeetCode profile into the DB without creating a follow row.
+ * Useful for the viewer to have their "You" row on the leaderboard without
+ * joining the global polling pool.
+ */
+export const getSaveProfileToDbUrl = (username: string) =>
+  `/api/profiles/${username}/save`;
+
+export const saveProfileToDb = async (
+  username: string,
+  options?: RequestInit,
+): Promise<DbProfileSummary> =>
+  customFetch<DbProfileSummary>(getSaveProfileToDbUrl(username), {
+    ...options,
+    method: "POST",
+  });
+
+export const getSaveProfileToDbMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveProfileToDb>>,
+    TError,
+    { username: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveProfileToDb>>,
+  TError,
+  { username: string },
+  TContext
+> => {
+  const mutationKey = ["saveProfileToDb"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveProfileToDb>>,
+    { username: string }
+  > = (props) => {
+    const { username } = props ?? {};
+    return saveProfileToDb(username, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveProfileToDbMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveProfileToDb>>
+>;
+export type SaveProfileToDbMutationError = ErrorType<void>;
+
+/**
+ * @summary Save LeetCode profile to DB (no follow created)
+ */
+export const useSaveProfileToDb = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveProfileToDb>>,
+    TError,
+    { username: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveProfileToDb>>,
+  TError,
+  { username: string },
+  TContext
+> => useMutation(getSaveProfileToDbMutationOptions(options));

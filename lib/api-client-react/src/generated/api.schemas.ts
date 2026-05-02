@@ -131,3 +131,19 @@ export interface UpdatePreferencesBody {
   digestMinute?: number;
   emailEnabled?: boolean;
 }
+
+export type GetDbProfileSummaryParams = {
+  period?: "day" | "week" | "month" | "year" | "all";
+};
+
+export interface DbProfileSummary {
+  leetcodeUsername: string;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
+  /** @nullable */
+  totalSolved?: number | null;
+  solvedInPeriod: number;
+  inDatabase: boolean;
+}
