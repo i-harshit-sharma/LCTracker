@@ -18,7 +18,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, and, sql } from "drizzle-orm";
+import { eq, desc, gte, lt, and, sql } from "drizzle-orm";
 import { db, solvedProblemsTable, leetcodeProfilesTable } from "@workspace/db";
 import { GetLeetcodeProfileParams, GetLeetcodeProfileResponse, GetDbProfileSummaryResponse } from "@workspace/api-zod";
 import { getLeetCodeProfile, getLeetCodeFollowing } from "../lib/leetcode";
@@ -165,28 +165,43 @@ router.get("/profiles/:username/db-summary", requireAuth, async (req, res): Prom
   const period = (req.query.period as string) ?? "week";
   const now = new Date();
   let periodStart: Date | null = null;
+  let periodEnd: Date | null = null;
 
   if (period === "day") {
     periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  } else if (typeof period === "string" && period.startsWith("week-")) {
+    const datePart = period.replace("week-", "");
+    const parsed = new Date(datePart);
+    if (!isNaN(parsed.getTime())) {
+      periodStart = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+      periodEnd = new Date(periodStart);
+      periodEnd.setUTCDate(periodEnd.getUTCDate() + 7);
+    }
   } else if (period === "week") {
     const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     periodStart = new Date(startOfToday);
-    periodStart.setUTCDate(periodStart.getUTCDate() - periodStart.getUTCDay());
-  } else if (period === "month") {
-    periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  } else if (period === "year") {
-    periodStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+    const day = periodStart.getUTCDay();
+    const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
+    periodStart.setUTCDate(periodStart.getUTCDate() - diff);
   }
   // period === "all" → periodStart stays null → count all
+
+  const dateFilters = [];
+  if (periodStart) {
+    dateFilters.push(gte(solvedProblemsTable.solvedAt, periodStart));
+  }
+  if (periodEnd) {
+    dateFilters.push(lt(solvedProblemsTable.solvedAt, periodEnd));
+  }
 
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(solvedProblemsTable)
     .where(
-      periodStart
+      dateFilters.length > 0
         ? and(
             eq(solvedProblemsTable.leetcodeUsername, username),
-            gte(solvedProblemsTable.solvedAt, periodStart),
+            ...dateFilters,
           )
         : eq(solvedProblemsTable.leetcodeUsername, username),
     );

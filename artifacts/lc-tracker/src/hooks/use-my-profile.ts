@@ -11,7 +11,7 @@ export function useMyProfile() {
   const { data: prefs, isLoading } = useGetPreferences();
   const updatePrefs = useUpdatePreferences();
 
-  const myUsername = prefs?.leetcodeUsername || null;
+  const myUsername = (prefs as any)?.leetcodeUsername || null;
 
   const setMyUsername = useCallback((username: string | null) => {
     const newUsername = username ? username.trim().toLowerCase() : null;
@@ -25,7 +25,7 @@ export function useMyProfile() {
       };
     });
     
-    updatePrefs.mutate({ data: { leetcodeUsername: newUsername } });
+    updatePrefs.mutate({ data: { leetcodeUsername: newUsername } as any });
   }, [queryClient, updatePrefs]);
 
   return { myUsername, setMyUsername, isLoading };

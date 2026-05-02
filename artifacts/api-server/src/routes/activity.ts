@@ -7,7 +7,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, inArray, and, sql } from "drizzle-orm";
+import { eq, desc, gte, lt, inArray, and, sql } from "drizzle-orm";
 import { db, followsTable, solvedProblemsTable, leetcodeProfilesTable } from "@workspace/db";
 import {
   ListActivityResponse,
@@ -222,23 +222,38 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
   // Compute period start in UTC
   const now = new Date();
   let periodStart: Date;
+  let periodEnd: Date | null = null;
 
   if (period === "day") {
     // "Day" starts at 12:00 AM UTC
     periodStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
-  } else if (period === "month") {
-    periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  } else if (period === "year") {
-    periodStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+  } else if (typeof period === "string" && period.startsWith("week-")) {
+    // Expected format: week-YYYY-MM-DD
+    const datePart = period.replace("week-", "");
+    const parsed = new Date(datePart);
+    if (isNaN(parsed.getTime())) {
+      res.status(400).json({ error: "Invalid week date" });
+      return;
+    }
+    periodStart = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+    periodEnd = new Date(periodStart);
+    periodEnd.setUTCDate(periodEnd.getUTCDate() + 7);
   } else {
-    // "week" (default) — start of current Sunday UTC
+    // "week" (default) — start of current Monday UTC
     const startOfToday = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
     periodStart = new Date(startOfToday);
-    periodStart.setUTCDate(periodStart.getUTCDate() - periodStart.getUTCDay());
+    const day = periodStart.getUTCDay();
+    const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
+    periodStart.setUTCDate(periodStart.getUTCDate() - diff);
+  }
+
+  const dateFilters = [gte(solvedProblemsTable.solvedAt, periodStart)];
+  if (periodEnd) {
+    dateFilters.push(lt(solvedProblemsTable.solvedAt, periodEnd));
   }
 
   // Count solves per user within the selected period
@@ -251,7 +266,7 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
     .where(
       and(
         inArray(solvedProblemsTable.leetcodeUsername, usernames),
-        gte(solvedProblemsTable.solvedAt, periodStart),
+        ...dateFilters
       ),
     )
     .groupBy(solvedProblemsTable.leetcodeUsername);

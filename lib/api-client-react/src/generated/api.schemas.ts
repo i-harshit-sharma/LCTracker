@@ -125,7 +125,7 @@ export type ListActivityParams = {
 
 export type GetLeaderboardParams = {
   scope?: "following" | "global";
-  period?: "day" | "week" | "month" | "year" | "all";
+  period?: string;
 };
 
 export interface UserPreferences {
@@ -145,7 +145,7 @@ export interface UpdatePreferencesBody {
 }
 
 export type GetDbProfileSummaryParams = {
-  period?: "day" | "week" | "month" | "year" | "all";
+  period?: string;
 };
 
 export interface DbProfileSummary {

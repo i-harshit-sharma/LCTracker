@@ -13,6 +13,7 @@ import DashboardPage from "@/pages/dashboard";
 import FollowsPage from "@/pages/follows";
 import NotificationsPage from "@/pages/notifications";
 import ProfilePage from "@/pages/profile";
+import CreatePage from "@/pages/create-page";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -139,6 +140,7 @@ function Router() {
         <Route path="/follows" component={() => <ProtectedRoute component={FollowsPage} />} />
         <Route path="/notifications" component={() => <ProtectedRoute component={NotificationsPage} />} />
         <Route path="/profiles/:username" component={() => <ProtectedRoute component={ProfilePage} />} />
+        <Route path="/create" component={() => <ProtectedRoute component={CreatePage} />} />
         <Route component={NotFound} />
       </Switch>
     </ClerkProvider>

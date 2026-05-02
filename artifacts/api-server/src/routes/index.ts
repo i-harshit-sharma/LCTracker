@@ -7,6 +7,7 @@ import profilesRouter from "./profiles";
 import preferencesRouter from "./preferences";
 import pushRouter from "./push";
 import logsRouter from "./logs";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,7 @@ router.use(profilesRouter);
 router.use(preferencesRouter);
 router.use(pushRouter);
 router.use(logsRouter);
+router.use(adminRouter);
 
 export default router;
 

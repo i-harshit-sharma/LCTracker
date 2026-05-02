@@ -128,7 +128,7 @@ export const GetActivityStatsResponse = zod.object({
 
 export const GetLeaderboardQueryParams = zod.object({
   scope: zod.enum(["following", "global"]).optional(),
-  period: zod.enum(["day", "week", "month", "year", "all"]).optional(),
+  period: zod.string().optional(),
 });
 
 export const GetLeaderboardResponseItem = zod.object({
@@ -218,7 +218,7 @@ export const PushSubscribeResponse = zod.object({
  */
 export const GetDbProfileSummaryParams = zod.object({
   username: zod.coerce.string(),
-  period: zod.enum(["day", "week", "month", "year", "all"]).optional(),
+  period: zod.string().optional(),
 });
 
 export const GetDbProfileSummaryResponse = zod.object({

@@ -18,9 +18,37 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+function generateWeeks() {
+  const weeks = [];
+  const startUTC = new Date(Date.UTC(2026, 3, 27)); // April 27, 2026
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  
+  let current = new Date(startUTC);
+  let weekNum = 1;
+  while (current <= todayUTC) {
+    const end = new Date(current);
+    end.setUTCDate(end.getUTCDate() + 6);
+    
+    const startStr = current.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    
+    // Unshift to put the most recent week at the top
+    weeks.unshift({
+      value: `week-${current.toISOString().split("T")[0]}`,
+      label: `Week ${weekNum} (${startStr} - ${endStr})`
+    });
+    
+    current.setUTCDate(current.getUTCDate() + 7);
+    weekNum++;
+  }
+  return weeks;
+}
 
 function StatCard({
   label,
@@ -164,9 +192,10 @@ function MyProfileBanner({
 
 export default function DashboardPage() {
   const [lbScope, setLbScope] = useState<"following" | "global">("following");
-  const [lbPeriod, setLbPeriod] = useState<"day" | "week" | "month" | "year" | "all">("week");
+  const [lbPeriod, setLbPeriod] = useState<string>("week");
+  const weeks = generateWeeks();
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
-  const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod });
+  const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod as any });
   const { myUsername, setMyUsername, isLoading: profileLoading } = useMyProfile();
   const { data: activity, isLoading: actLoading } = useListActivity({ 
     limit: 30,
@@ -180,11 +209,11 @@ export default function DashboardPage() {
   // Returns undefined (silently) when the user hasn't been crawled yet.
   const { data: myDbSummary, refetch: refetchDbSummary } = useGetDbProfileSummary(
     myUsername!,
-    { period: lbPeriod },
+    { period: lbPeriod as any },
     {
       query: {
         enabled: !!myUsername,
-        queryKey: getGetDbProfileSummaryQueryKey(myUsername!, { period: lbPeriod }),
+        queryKey: getGetDbProfileSummaryQueryKey(myUsername!, { period: lbPeriod as any }),
         // 404 means "not in DB" — treat as undefined, don't throw
         retry: false,
       },
@@ -198,7 +227,7 @@ export default function DashboardPage() {
         onSuccess: () => {
           // Invalidate the db-summary query so the leaderboard row refreshes
           queryClient.invalidateQueries({
-            queryKey: getGetDbProfileSummaryQueryKey(myUsername!, { period: lbPeriod }),
+            queryKey: getGetDbProfileSummaryQueryKey(myUsername!, { period: lbPeriod as any }),
           });
         },
       },
@@ -246,6 +275,10 @@ export default function DashboardPage() {
     year: "this year",
     all: "all time",
   };
+  
+  const currentPeriodLabel = lbPeriod.startsWith("week-") 
+    ? weeks.find(w => w.value === lbPeriod)?.label?.split(" ")[1] ?? "this week"
+    : periodLabels[lbPeriod] ?? "this week";
 
   return (
     <div className="min-h-screen bg-background">
@@ -441,15 +474,30 @@ export default function DashboardPage() {
                   </Tabs>
                 </div>
                 <Tabs
-                  value={lbPeriod}
-                  onValueChange={(v) => setLbPeriod(v as "day" | "week" | "month" | "year" | "all")}
+                  value={lbPeriod.startsWith("week-") ? "week" : lbPeriod}
+                  onValueChange={setLbPeriod}
                   className="w-full"
                 >
                   <TabsList className="h-7 p-0.5 bg-muted/50 w-full flex">
                     <TabsTrigger value="day" className="text-[10px] px-2 h-6 flex-1">Day</TabsTrigger>
-                    <TabsTrigger value="week" className="text-[10px] px-2 h-6 flex-1">Week</TabsTrigger>
-                    <TabsTrigger value="month" className="text-[10px] px-2 h-6 flex-1">Month</TabsTrigger>
-                    <TabsTrigger value="year" className="text-[10px] px-2 h-6 flex-1">Year</TabsTrigger>
+                    
+                    {/* Replaced 'week' trigger with a custom selector */}
+                    <div className={`flex-1 flex rounded-sm transition-all ${lbPeriod === "week" || lbPeriod.startsWith("week-") ? "bg-background text-foreground shadow-sm" : "hover:bg-background/50 text-muted-foreground"}`}>
+                      <Select value={lbPeriod === "week" ? "week" : lbPeriod} onValueChange={setLbPeriod}>
+                        <SelectTrigger className="h-6 w-full px-2 border-0 bg-transparent text-[10px] focus:ring-0 shadow-none font-medium flex justify-center text-center">
+                          <SelectValue placeholder="Week" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="week" className="text-xs">Current Week</SelectItem>
+                          {weeks.map((w) => (
+                            <SelectItem key={w.value} value={w.value} className="text-xs">
+                              {w.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <TabsTrigger value="all" className="text-[10px] px-2 h-6 flex-1">All</TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -576,7 +624,7 @@ export default function DashboardPage() {
                               <p className="font-bold text-sm text-primary">
                                 {entry.solvedInPeriod}
                               </p>
-                              <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
+                              <p className="text-[10px] text-muted-foreground">{currentPeriodLabel}</p>
                             </div>
                           </div>
                         );
