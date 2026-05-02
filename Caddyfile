@@ -28,7 +28,7 @@ lc.harshits.live {
     encode gzip
 
     # Let's try to be as direct as possible with the root
-    root * artifacts/lc-tracker/dist/public
+    root * /root/LCTracker/artifacts/lc-tracker/dist/public
 
     # Handle API requests
     handle /api/* {
