@@ -30,6 +30,9 @@ import { sendPushNotificationsForUser } from "./pushNotification";
 /** How often we run a full poll cycle, in milliseconds */
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5 * 60 * 1_000);
 
+/** Only notify about problems solved in the last 10 minutes */
+const NOTIFICATION_THRESHOLD_MS = 10 * 60 * 1_000;
+
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
 let isRunning = false;
 
@@ -174,7 +177,18 @@ async function pollUser(username: string): Promise<void> {
 
   await db.insert(solvedProblemsTable).values(rows).onConflictDoNothing();
 
-  // 5. Fetch all Clerk user IDs that follow this username
+  // 5. Filter for "recent" problems to notify about
+  const now = Date.now();
+  const recentRows = rows.filter(
+    (r) => now - r.solvedAt.getTime() <= NOTIFICATION_THRESHOLD_MS,
+  );
+
+  if (!recentRows.length) {
+    logger.debug({ username }, "New problems stored but none are recent enough for notifications");
+    return;
+  }
+
+  // 6. Fetch all Clerk user IDs that follow this username
   const followers = await db
     .select({ userId: followsTable.userId })
     .from(followsTable)
@@ -182,9 +196,9 @@ async function pollUser(username: string): Promise<void> {
 
   if (!followers.length) return;
 
-  // 6. Create an in-app notification for each follower × each new problem
+  // 7. Create an in-app notification for each follower × each recent problem
   const notifications = [];
-  for (const row of rows) {
+  for (const row of recentRows) {
     for (const follower of followers) {
       notifications.push({
         userId: follower.userId,
@@ -203,21 +217,21 @@ async function pollUser(username: string): Promise<void> {
   await db.insert(notificationsTable).values(notifications);
 
   logger.info(
-    { username, followers: followers.length, problems: newSubmissions.length },
+    { username, followers: followers.length, problems: recentRows.length },
     "Notifications dispatched",
   );
 
-  // 7. Send browser push notifications to opted-in followers
+  // 8. Send browser push notifications to opted-in followers
   //    One push per follower, summarising all newly solved problems in a single message.
   //    If a user solved multiple problems we list up to 2 titles, then "and N more".
-  const problemTitles = rows.map((r) => r.problemTitle);
+  const problemTitles = recentRows.map((r) => r.problemTitle);
   const previewTitles =
     problemTitles.length <= 2
       ? problemTitles.join(" & ")
       : `${problemTitles.slice(0, 2).join(", ")} and ${problemTitles.length - 2} more`;
 
   // Use the first problem's slug for the click-through URL
-  const firstSlug = rows[0]?.problemSlug ?? "";
+  const firstSlug = recentRows[0]?.problemSlug ?? "";
 
   await Promise.all(
     followers.map((follower) =>

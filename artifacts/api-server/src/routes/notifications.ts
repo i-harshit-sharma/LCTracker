@@ -7,7 +7,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db, notificationsTable } from "@workspace/db";
 import {
   ListNotificationsResponse,
@@ -37,7 +37,7 @@ router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
           )
         : eq(notificationsTable.userId, userId),
     )
-    .orderBy(desc(notificationsTable.createdAt));
+    .orderBy(desc(sql`COALESCE(${notificationsTable.solvedAt}, ${notificationsTable.createdAt})`));
 
   res.json(ListNotificationsResponse.parse(serializeDates(rows)));
 });

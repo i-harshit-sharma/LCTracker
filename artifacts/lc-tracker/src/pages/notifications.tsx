@@ -516,7 +516,7 @@ export default function NotificationsPage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
                 {notifications.map((notif) => (
                   <div
                     key={notif.id}
