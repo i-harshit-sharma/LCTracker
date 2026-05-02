@@ -17,6 +17,7 @@ import {
 import { requireAuth } from "../lib/auth";
 import { getLeetCodeProfile } from "../lib/leetcode";
 import { serializeDates } from "../lib/serialize";
+import { backfillUserProblems } from "../lib/poller";
 
 const router: IRouter = Router();
 
@@ -128,6 +129,13 @@ router.post("/follows", requireAuth, async (req, res): Promise<void> => {
     .returning();
 
   req.log.info({ userId, leetcodeUsername }, "New follow created");
+
+  // Backfill historical solved problems in the background so the activity feed
+  // and leaderboard are populated immediately — no await so the response is fast.
+  backfillUserProblems(leetcodeUsername).catch((err) =>
+    req.log.error({ err, leetcodeUsername }, "Background backfill failed"),
+  );
+
   res.status(201).json(serializeDates(follow));
 });
 

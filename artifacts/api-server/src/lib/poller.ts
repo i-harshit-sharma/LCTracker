@@ -12,6 +12,9 @@
  * The poller runs on an interval set by POLL_INTERVAL_MS (default: 5 minutes).
  * Between each individual user request we insert INTER_USER_DELAY_MS (3 s) of
  * sleep to avoid hammering LeetCode's rate limits.
+ *
+ * backfillUserProblems() is exported separately so the follow route can seed
+ * a newly followed user's historical solved problems at follow time.
  */
 
 import { db, followsTable, solvedProblemsTable, notificationsTable, leetcodeProfilesTable } from "@workspace/db";
@@ -162,20 +165,8 @@ async function pollUser(username: string): Promise<void> {
     "New solved problems detected",
   );
 
-  // 4. Persist new solved problems
-  const rows = [];
-  for (const s of newSubmissions) {
-    const difficulty = await getProblemDifficulty(s.titleSlug);
-    rows.push({
-      leetcodeUsername: username,
-      problemSlug: s.titleSlug,
-      problemTitle: s.title,
-      difficulty,
-      solvedAt: new Date(Number(s.timestamp) * 1_000),
-    });
-  }
-
-  await db.insert(solvedProblemsTable).values(rows).onConflictDoNothing();
+  // 4. Persist new solved problems (shared helper used by backfill too)
+  const rows = await persistNewSubmissions(username, newSubmissions);
 
   // 5. Filter for "recent" problems to notify about
   const now = Date.now();
@@ -245,6 +236,88 @@ async function pollUser(username: string): Promise<void> {
       }),
     ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves difficulty for each submission, inserts them into solved_problems,
+ * and returns the inserted rows. Skips duplicates via ON CONFLICT DO NOTHING.
+ */
+async function persistNewSubmissions(
+  username: string,
+  newSubmissions: { titleSlug: string; title: string; timestamp: string }[],
+) {
+  const rows = [];
+  for (const s of newSubmissions) {
+    const difficulty = await getProblemDifficulty(s.titleSlug);
+    rows.push({
+      leetcodeUsername: username,
+      problemSlug: s.titleSlug,
+      problemTitle: s.title,
+      difficulty,
+      solvedAt: new Date(Number(s.timestamp) * 1_000),
+    });
+  }
+  await db.insert(solvedProblemsTable).values(rows).onConflictDoNothing();
+  return rows;
+}
+
+/**
+ * Backfills a newly followed user's solved problems into the DB.
+ *
+ * Strategy:
+ *   1. Fetch the user's public profile to get their `totalSolved` count.
+ *   2. Request exactly `totalSolved + BUFFER` accepted submissions from LeetCode
+ *      so we capture every problem they have ever solved (not just the last 100).
+ *   3. Persist only the ones not already in the DB — no notifications, because
+ *      these are historical solves the follower already knew about.
+ *
+ * Called once from the follow route immediately after the follow row is created.
+ */
+export async function backfillUserProblems(username: string): Promise<void> {
+  logger.info({ username }, "Backfilling solved problems for new follow");
+
+  // Step 1 — learn how many problems the user has solved so we request them all
+  const profile = await getLeetCodeProfile(username);
+  const totalSolved = profile?.totalSolved ?? 0;
+
+  // Add a small buffer in case submissions arrive between profile fetch and AC list fetch
+  const limit = Math.max(totalSolved + 10, 20);
+
+  logger.info({ username, totalSolved, limit }, "Fetching full submission history");
+
+  const submissions = await getRecentAcceptedSubmissions(username, limit);
+  if (!submissions.length) {
+    logger.info({ username }, "No submissions found during backfill");
+    return;
+  }
+
+  // Step 2 — filter out slugs already stored in the DB
+  const slugs = submissions.map((s) => s.titleSlug);
+  const existing = await db
+    .select({ problemSlug: solvedProblemsTable.problemSlug })
+    .from(solvedProblemsTable)
+    .where(
+      and(
+        eq(solvedProblemsTable.leetcodeUsername, username),
+        inArray(solvedProblemsTable.problemSlug, slugs),
+      ),
+    );
+
+  const existingSlugs = new Set(existing.map((r) => r.problemSlug));
+  const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
+
+  if (!newSubmissions.length) {
+    logger.info({ username }, "All submissions already stored — backfill skipped");
+    return;
+  }
+
+  // Step 3 — persist everything that is genuinely new
+  const rows = await persistNewSubmissions(username, newSubmissions);
+  logger.info({ username, stored: rows.length, total: submissions.length }, "Backfill complete");
 }
 
 /**

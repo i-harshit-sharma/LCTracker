@@ -146,4 +146,6 @@ export interface DbProfileSummary {
   totalSolved?: number | null;
   solvedInPeriod: number;
   inDatabase: boolean;
+  /** Recent solved problem slugs (up to 100) for solved-tick logic */
+  recentSlugs?: string[];
 }

@@ -193,6 +193,17 @@ router.get("/profiles/:username/db-summary", requireAuth, async (req, res): Prom
 
   const solvedInPeriod = countRows[0]?.count ?? 0;
 
+  // Fetch recent solved slugs (up to 100) so the dashboard can mark solved tick
+  // without requiring the viewer to follow themselves
+  const recentSlugRows = await db
+    .select({ problemSlug: solvedProblemsTable.problemSlug })
+    .from(solvedProblemsTable)
+    .where(eq(solvedProblemsTable.leetcodeUsername, username))
+    .orderBy(desc(solvedProblemsTable.solvedAt))
+    .limit(100);
+
+  const recentSlugs = recentSlugRows.map((r) => r.problemSlug.toLowerCase());
+
   res.json(
     GetDbProfileSummaryResponse.parse(
       serializeDates({
@@ -202,6 +213,7 @@ router.get("/profiles/:username/db-summary", requireAuth, async (req, res): Prom
         totalSolved: cachedProfile.totalSolved ?? null,
         solvedInPeriod,
         inDatabase: true,
+        recentSlugs,
       }),
     ),
   );
@@ -275,6 +287,7 @@ router.post("/profiles/:username/save", requireAuth, async (req, res): Promise<v
         totalSolved: upserted.totalSolved ?? null,
         solvedInPeriod: 0,
         inDatabase: true,
+        recentSlugs: [],
       }),
     ),
   );

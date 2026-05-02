@@ -11,6 +11,8 @@ import {
   useGetDbProfileSummary,
   getGetDbProfileSummaryQueryKey,
   useSaveProfileToDb,
+  useGetLeetcodeProfile,
+  getGetLeetcodeProfileQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -206,19 +208,33 @@ export default function DashboardPage() {
     }
   }, [savedOk, myUsername, refetchDbSummary]);
 
-  // Build the set of solved slugs from the activity feed items that belong to
-  // the viewer (cheapest way since activity is already fetched).
-  const mySolvedSlugs = new Set(
-    Array.isArray(activity)
+  // Fetch the viewer's own LC profile — DB-first, falls back to live LC API
+  // only on first encounter. Works as soon as myUsername is set in localStorage,
+  // no "Save to DB" or "follow yourself" required.
+  const { data: myProfile } = useGetLeetcodeProfile(myUsername!, {
+    query: {
+      enabled: !!myUsername,
+      retry: false,
+      queryKey: getGetLeetcodeProfileQueryKey(myUsername!),
+    },
+  });
+
+  // Build the set of solved slugs for the viewer.
+  // Primary: recentProblems from the profile endpoint (last 20 problems in DB).
+  // Secondary: activity feed items that belong to the viewer (covers cases
+  //   where the viewer IS followed and their solves appear in the feed).
+  const mySolvedSlugs = new Set<string>([
+    ...(myProfile?.recentProblems?.map((p) => p.problemSlug.toLowerCase()) ?? []),
+    ...(Array.isArray(activity)
       ? activity
-        .filter(
-          (item) =>
-            !!myUsername &&
-            item.leetcodeUsername.toLowerCase() === myUsername.toLowerCase(),
-        )
-        .map((item) => item.problemSlug.toLowerCase())
-      : [],
-  );
+          .filter(
+            (item) =>
+              !!myUsername &&
+              item.leetcodeUsername.toLowerCase() === myUsername.toLowerCase(),
+          )
+          .map((item) => item.problemSlug.toLowerCase())
+      : []),
+  ]);
 
   const periodLabels: Record<string, string> = {
     day: "today",
@@ -445,19 +461,41 @@ export default function DashboardPage() {
                 ) : (() => {
                   // Check if the viewer is already in the leaderboard
                   const myLower = myUsername?.toLowerCase();
-                  const myLbIdx = myLower
-                    ? leaderboard.findIndex(
-                      (e) => e.leetcodeUsername.toLowerCase() === myLower,
-                    )
-                    : -1;
-                  const isMeInBoard = myLbIdx !== -1;
+                  const isMeInBoard = myLower
+                    ? leaderboard.some((e) => e.leetcodeUsername.toLowerCase() === myLower)
+                    : false;
+
+                  // Build a merged + sorted list that injects the viewer's
+                  // self-entry at the correct position when they have DB data.
+                  type LbEntry = (typeof leaderboard)[number] & { _isMe?: boolean };
+                  let merged: LbEntry[] = leaderboard.map((e) => ({
+                    ...e,
+                    _isMe: !!myLower && e.leetcodeUsername.toLowerCase() === myLower,
+                  }));
+
+                  const showSavePrompt = myUsername && !isMeInBoard && !myDbSummary;
+
+                  if (myUsername && !isMeInBoard && myDbSummary) {
+                    const myCount = myDbSummary.solvedInPeriod ?? 0;
+                    const selfEntry: LbEntry = {
+                      leetcodeUsername: myUsername,
+                      displayName: myDbSummary.displayName ?? null,
+                      avatarUrl: myDbSummary.avatarUrl ?? null,
+                      solvedInPeriod: myCount,
+                      _isMe: true,
+                    };
+                    const insertIdx = merged.findIndex((e) => (e.solvedInPeriod ?? 0) < myCount);
+                    if (insertIdx === -1) {
+                      merged.push(selfEntry);
+                    } else {
+                      merged.splice(insertIdx, 0, selfEntry);
+                    }
+                  }
 
                   return (
                     <div className="divide-y divide-border">
-                      {leaderboard.map((entry, idx) => {
-                        const isMe =
-                          !!myLower &&
-                          entry.leetcodeUsername.toLowerCase() === myLower;
+                      {merged.map((entry, idx) => {
+                        const isMe = !!entry._isMe;
                         return (
                           <div
                             key={entry.leetcodeUsername}
@@ -465,7 +503,7 @@ export default function DashboardPage() {
                                 ? "bg-primary/5 ring-1 ring-inset ring-primary/20 hover:bg-primary/10"
                                 : "hover:bg-muted/30"
                               }`}
-                            data-testid={`leaderboard-entry-${entry.leetcodeUsername}`}
+                            data-testid={isMe ? "leaderboard-entry-self" : `leaderboard-entry-${entry.leetcodeUsername}`}
                           >
                             <div
                               className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${idx === 0
@@ -474,7 +512,9 @@ export default function DashboardPage() {
                                     ? "bg-slate-400/20 text-slate-400"
                                     : idx === 2
                                       ? "bg-orange-700/20 text-orange-700"
-                                      : "bg-muted text-muted-foreground"
+                                      : isMe
+                                        ? "bg-primary/10 text-primary"
+                                        : "bg-muted text-muted-foreground"
                                 }`}
                             >
                               {idx + 1}
@@ -517,7 +557,7 @@ export default function DashboardPage() {
                               </p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className={`font-bold text-sm ${isMe ? "text-primary" : "text-primary"}`}>
+                              <p className="font-bold text-sm text-primary">
                                 {entry.solvedInPeriod}
                               </p>
                               <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
@@ -526,10 +566,8 @@ export default function DashboardPage() {
                         );
                       })}
 
-                      {/* Pinned self row when not in the ranked leaderboard.
-                          Uses DB-only data (myDbSummary) — never triggers a live
-                          LeetCode API call or adds the user to the global pool. */}
-                      {myUsername && !isMeInBoard && (
+                      {/* "Save to DB" prompt when viewer has no DB data yet */}
+                      {showSavePrompt && (
                         <>
                           <div className="px-4 py-1.5 flex items-center gap-2">
                             <div className="flex-1 border-t border-dashed border-border" />
@@ -538,62 +576,38 @@ export default function DashboardPage() {
                           </div>
                           <div
                             className="px-5 py-3 flex gap-3 items-center bg-primary/5 ring-1 ring-inset ring-primary/20"
-                            data-testid="leaderboard-entry-self"
+                            data-testid="leaderboard-entry-self-unsaved"
                           >
                             <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold bg-primary/10 text-primary">
                               —
                             </div>
-                            {myDbSummary?.avatarUrl ? (
-                              <img
-                                src={myDbSummary.avatarUrl}
-                                alt={myUsername}
-                                className="h-8 w-8 rounded-full object-cover ring-2 ring-primary"
-                              />
-                            ) : (
-                              <div className="shrink-0 h-8 w-8 rounded-full bg-primary/20 text-primary ring-2 ring-primary flex items-center justify-center font-bold text-sm">
-                                {myUsername[0].toUpperCase()}
-                              </div>
-                            )}
+                            <div className="shrink-0 h-8 w-8 rounded-full bg-primary/20 text-primary ring-2 ring-primary flex items-center justify-center font-bold text-sm">
+                              {myUsername![0].toUpperCase()}
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <Link
                                   href={`/profiles/${myUsername}`}
                                   className="font-semibold text-sm hover:text-primary transition-colors truncate"
                                 >
-                                  {myDbSummary?.displayName ?? myUsername}
+                                  {myUsername}
                                 </Link>
                                 <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground leading-none">
                                   You
                                 </span>
                               </div>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {myDbSummary ? myUsername : "click Save to DB →"}
-                              </p>
+                              <p className="text-xs text-muted-foreground truncate">click Save to DB →</p>
                             </div>
-                            <div
-                              className="text-right shrink-0"
-                              title={
-                                myDbSummary
-                                  ? `${myDbSummary.solvedInPeriod} solved ${periodLabels[lbPeriod]}`
-                                  : "Not crawled yet — follow yourself to track"
-                              }
-                            >
-                              {myDbSummary ? (
-                                <>
-                                  <p className="font-bold text-sm text-primary">{myDbSummary.solvedInPeriod}</p>
-                                  <p className="text-[10px] text-muted-foreground">{periodLabels[lbPeriod]}</p>
-                                </>
-                              ) : (
-                                <button
-                                  id="save-my-profile-btn"
-                                  onClick={() => myUsername && saveToDb({ username: myUsername })}
-                                  disabled={isSaving}
-                                  className="text-[10px] font-semibold text-primary hover:underline disabled:opacity-50 disabled:cursor-wait text-right"
-                                  title="Fetch your profile from LeetCode and save to DB"
-                                >
-                                  {isSaving ? "Saving…" : saveError ? "Retry save" : "Save to DB"}
-                                </button>
-                              )}
+                            <div className="text-right shrink-0">
+                              <button
+                                id="save-my-profile-btn"
+                                onClick={() => myUsername && saveToDb({ username: myUsername })}
+                                disabled={isSaving}
+                                className="text-[10px] font-semibold text-primary hover:underline disabled:opacity-50 disabled:cursor-wait text-right"
+                                title="Fetch your profile from LeetCode and save to DB"
+                              >
+                                {isSaving ? "Saving…" : saveError ? "Retry save" : "Save to DB"}
+                              </button>
                             </div>
                           </div>
                         </>

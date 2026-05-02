@@ -224,4 +224,6 @@ export const GetDbProfileSummaryResponse = zod.object({
   /** Problems solved within the requested period */
   solvedInPeriod: zod.number(),
   inDatabase: zod.boolean(),
+  /** Recent solved problem slugs (up to 100) for "solved" tick logic */
+  recentSlugs: zod.array(zod.string()).optional(),
 });
