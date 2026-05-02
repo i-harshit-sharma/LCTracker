@@ -167,6 +167,11 @@ paths:
           required: false
           schema:
             type: integer
+        - name: myUsername
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           description: Activity list
@@ -175,7 +180,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SolvedProblem"
+                  $ref: "#/components/schemas/ActivityFeedItem"
         "401":
           description: Unauthorized
 
@@ -330,6 +335,16 @@ components:
         - problemTitle
         - difficulty
         - solvedAt
+
+    ActivityFeedItem:
+      allOf:
+        - $ref: "#/components/schemas/SolvedProblem"
+        - type: object
+          properties:
+            avatarUrl:
+              type: ["string", "null"]
+            displayName:
+              type: ["string", "null"]
 
     ActivityStats:
       type: object

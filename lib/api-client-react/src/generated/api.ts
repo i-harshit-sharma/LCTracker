@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivityFeedItem,
   ActivityStats,
   CreateFollowBody,
   DbProfileSummary,
@@ -647,8 +648,8 @@ export const getListActivityUrl = (params?: ListActivityParams) => {
 export const listActivity = async (
   params?: ListActivityParams,
   options?: RequestInit,
-): Promise<SolvedProblem[]> => {
-  return customFetch<SolvedProblem[]>(getListActivityUrl(params), {
+): Promise<ActivityFeedItem[]> => {
+  return customFetch<ActivityFeedItem[]>(getListActivityUrl(params), {
     ...options,
     method: "GET",
   });

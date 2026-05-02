@@ -25,8 +25,18 @@ router.get("/follows", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as any).userId as string;
 
   const follows = await db
-    .select()
+    .select({
+      id: followsTable.id,
+      userId: followsTable.userId,
+      leetcodeUsername: followsTable.leetcodeUsername,
+      createdAt: followsTable.createdAt,
+      displayName: leetcodeProfilesTable.displayName,
+      avatarUrl: leetcodeProfilesTable.avatarUrl,
+      totalSolved: leetcodeProfilesTable.totalSolved,
+      lastPolledAt: leetcodeProfilesTable.lastPolledAt,
+    })
     .from(followsTable)
+    .leftJoin(leetcodeProfilesTable, eq(followsTable.leetcodeUsername, leetcodeProfilesTable.username))
     .where(eq(followsTable.userId, userId))
     .orderBy(desc(followsTable.createdAt));
 

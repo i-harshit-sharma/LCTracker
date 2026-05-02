@@ -100,6 +100,7 @@ export const MarkNotificationReadResponse = zod.object({
  */
 export const ListActivityQueryParams = zod.object({
   limit: zod.coerce.number().optional(),
+  myUsername: zod.coerce.string().optional(),
 });
 
 export const ListActivityResponseItem = zod.object({
@@ -110,6 +111,8 @@ export const ListActivityResponseItem = zod.object({
   difficulty: zod.string(),
   solvedAt: zod.string(),
   titleSlug: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  displayName: zod.string().nullish(),
 });
 export const ListActivityResponse = zod.array(ListActivityResponseItem);
 

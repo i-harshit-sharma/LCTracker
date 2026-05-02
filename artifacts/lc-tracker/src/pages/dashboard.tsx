@@ -167,9 +167,12 @@ export default function DashboardPage() {
   const [lbPeriod, setLbPeriod] = useState<"day" | "week" | "month" | "year" | "all">("week");
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod });
-  const { data: activity, isLoading: actLoading } = useListActivity({ limit: 30 });
-
   const { myUsername, setMyUsername } = useMyProfile();
+  const { data: activity, isLoading: actLoading } = useListActivity({ 
+    limit: 30,
+    ...(myUsername ? { myUsername } : {})
+  });
+
   const queryClient = useQueryClient();
 
   // DB-only fetch of the viewer's own profile — never touches the live LeetCode
@@ -345,16 +348,25 @@ export default function DashboardPage() {
                             }`}
                           data-testid={`activity-item-${item.id}`}
                         >
-                          <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                            {item.leetcodeUsername[0].toUpperCase()}
-                          </div>
+                          {item.avatarUrl ? (
+                            <img
+                              src={item.avatarUrl}
+                              alt={item.leetcodeUsername}
+                              className="shrink-0 h-8 w-8 rounded-full object-cover border border-border"
+                            />
+                          ) : (
+                            <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                              {item.leetcodeUsername[0].toUpperCase()}
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                               <Link
                                 href={`/profiles/${item.leetcodeUsername}`}
-                                className="font-semibold text-sm hover:text-primary transition-colors"
+                                className="font-semibold text-sm hover:text-primary transition-colors truncate max-w-[120px]"
+                                title={item.leetcodeUsername}
                               >
-                                {item.leetcodeUsername}
+                                {item.displayName || item.leetcodeUsername}
                               </Link>
                               <span className="text-sm text-muted-foreground">solved</span>
                               <a

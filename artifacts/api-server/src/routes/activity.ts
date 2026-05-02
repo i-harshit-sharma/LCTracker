@@ -25,6 +25,7 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
 
   const qp = ListActivityQueryParams.safeParse(req.query);
   const limit = qp.success && qp.data.limit ? Math.min(qp.data.limit, 100) : 50;
+  const myUsername = qp.success && qp.data.myUsername ? qp.data.myUsername : null;
 
   // Get all usernames followed by this user
   const followed = await db
@@ -32,16 +33,29 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
     .from(followsTable)
     .where(eq(followsTable.userId, userId));
 
-  if (!followed.length) {
+  const usernames = followed.map((f) => f.leetcodeUsername);
+  if (myUsername && !usernames.includes(myUsername)) {
+    usernames.push(myUsername);
+  }
+
+  if (!usernames.length) {
     res.json([]);
     return;
   }
 
-  const usernames = followed.map((f) => f.leetcodeUsername);
-
   const solves = await db
-    .select()
+    .select({
+      id: solvedProblemsTable.id,
+      leetcodeUsername: solvedProblemsTable.leetcodeUsername,
+      problemSlug: solvedProblemsTable.problemSlug,
+      problemTitle: solvedProblemsTable.problemTitle,
+      difficulty: solvedProblemsTable.difficulty,
+      solvedAt: solvedProblemsTable.solvedAt,
+      avatarUrl: leetcodeProfilesTable.avatarUrl,
+      displayName: leetcodeProfilesTable.displayName,
+    })
     .from(solvedProblemsTable)
+    .leftJoin(leetcodeProfilesTable, eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username))
     .where(inArray(solvedProblemsTable.leetcodeUsername, usernames))
     .orderBy(desc(solvedProblemsTable.solvedAt))
     .limit(limit);
@@ -170,11 +184,12 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
     const followed = await db
       .select({
         leetcodeUsername: followsTable.leetcodeUsername,
-        displayName: followsTable.displayName,
-        avatarUrl: followsTable.avatarUrl,
-        totalSolved: followsTable.totalSolved,
+        displayName: leetcodeProfilesTable.displayName,
+        avatarUrl: leetcodeProfilesTable.avatarUrl,
+        totalSolved: leetcodeProfilesTable.totalSolved,
       })
       .from(followsTable)
+      .leftJoin(leetcodeProfilesTable, eq(followsTable.leetcodeUsername, leetcodeProfilesTable.username))
       .where(eq(followsTable.userId, userId));
 
     users = followed;

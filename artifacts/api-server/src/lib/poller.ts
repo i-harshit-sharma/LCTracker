@@ -119,23 +119,6 @@ async function pollUser(username: string): Promise<void> {
           updatedAt: new Date(),
         },
       });
-
-    // Also keep follows rows in sync for fast display in the follows list
-    await db
-      .update(followsTable)
-      .set({
-        displayName: profile.realName ?? null,
-        avatarUrl: profile.userAvatar ?? null,
-        totalSolved: profile.totalSolved ?? null,
-        lastPolledAt: new Date(),
-      })
-      .where(eq(followsTable.leetcodeUsername, username));
-  } else {
-    // Still update lastPolledAt even if profile fetch failed
-    await db
-      .update(followsTable)
-      .set({ lastPolledAt: new Date() })
-      .where(eq(followsTable.leetcodeUsername, username));
   }
 
   if (!submissions.length) return;
@@ -250,18 +233,29 @@ async function persistNewSubmissions(
   username: string,
   newSubmissions: { titleSlug: string; title: string; timestamp: string }[],
 ) {
+  const CHUNK_SIZE = 10;
   const rows = [];
-  for (const s of newSubmissions) {
-    const difficulty = await getProblemDifficulty(s.titleSlug);
-    rows.push({
-      leetcodeUsername: username,
-      problemSlug: s.titleSlug,
-      problemTitle: s.title,
-      difficulty,
-      solvedAt: new Date(Number(s.timestamp) * 1_000),
-    });
+  
+  for (let i = 0; i < newSubmissions.length; i += CHUNK_SIZE) {
+    const chunk = newSubmissions.slice(i, i + CHUNK_SIZE);
+    const chunkRows = await Promise.all(
+      chunk.map(async (s) => {
+        const difficulty = await getProblemDifficulty(s.titleSlug);
+        return {
+          leetcodeUsername: username,
+          problemSlug: s.titleSlug,
+          problemTitle: s.title,
+          difficulty,
+          solvedAt: new Date(Number(s.timestamp) * 1_000),
+        };
+      })
+    );
+    rows.push(...chunkRows);
   }
-  await db.insert(solvedProblemsTable).values(rows).onConflictDoNothing();
+
+  if (rows.length > 0) {
+    await db.insert(solvedProblemsTable).values(rows).onConflictDoNothing();
+  }
   return rows;
 }
 

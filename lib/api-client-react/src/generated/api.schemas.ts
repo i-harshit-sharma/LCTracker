@@ -58,6 +58,13 @@ export interface SolvedProblem {
   titleSlug?: string | null;
 }
 
+export type ActivityFeedItem = SolvedProblem & {
+  /** @nullable */
+  avatarUrl?: string | null;
+  /** @nullable */
+  displayName?: string | null;
+};
+
 export interface ActivityStats {
   solvedToday: number;
   solvedThisWeek: number;
@@ -113,6 +120,7 @@ export type MarkAllNotificationsRead200 = {
 
 export type ListActivityParams = {
   limit?: number;
+  myUsername?: string;
 };
 
 export type GetLeaderboardParams = {
