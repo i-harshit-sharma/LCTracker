@@ -53,12 +53,12 @@ export default function CreatePage() {
       setUploadStats(response);
       toast({
         title: "Import Complete",
-        description: `Successfully added ${response.data.added.length} users.`,
+        description: `Successfully added ${response.added.length} users.`,
       });
     } catch (err: any) {
       toast({
         title: "Upload Failed",
-        description: err.response?.data?.error || err.message,
+        description: err.data?.error || err.message,
         variant: "destructive",
       });
     } finally {
@@ -93,7 +93,7 @@ export default function CreatePage() {
     } catch (err: any) {
       toast({
         title: "Download Failed",
-        description: err.response?.data?.error || "Could not fetch users list.",
+        description: err.data?.error || "Could not fetch users list.",
         variant: "destructive",
       });
     } finally {
