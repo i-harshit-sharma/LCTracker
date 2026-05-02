@@ -74,11 +74,11 @@ export default function LandingPage() {
         <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
           Turn grinding into a
           <br />
-          <span className="text-primary">competitive sport</span>
+          <span className="text-primary"> sport</span>
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
           Follow LeetCode problem solvers, watch their progress live, and stay
-          accountable with a community of developers who actually ship.
+          accountable with a community of developers who actually grind.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/sign-up">
@@ -96,13 +96,13 @@ export default function LandingPage() {
 
       {/* Stats banner */}
       <section className="border-y border-border bg-card">
-        <div className="mx-auto max-w-6xl px-4 py-8 grid grid-cols-3 divide-x divide-border text-center">
+        <div className="mx-auto max-w-6xl px-4 py-8 grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border text-center">
           {[
             { value: "Realtime", label: "Submission tracking" },
-            { value: "23:59", label: "Daily digest email" },
+            { value: "Customizable", label: "Notifications & Emails" },
             { value: "Any", label: "Public LeetCode profile" },
           ].map(({ value, label }) => (
-            <div key={label} className="px-4">
+            <div key={label} className="px-4 py-6 md:py-0">
               <div className="text-2xl font-bold text-primary">{value}</div>
               <div className="text-sm text-muted-foreground mt-1">{label}</div>
             </div>
