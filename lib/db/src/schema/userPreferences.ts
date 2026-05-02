@@ -25,6 +25,9 @@ export const userPreferencesTable = pgTable("user_preferences", {
   /** Whether digest emails are enabled for this user. */
   emailEnabled: boolean("email_enabled").notNull().default(true),
 
+  /** The user's own LeetCode username for personal stats. */
+  leetcodeUsername: text("leetcode_username"),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
