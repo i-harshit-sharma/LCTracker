@@ -31,7 +31,7 @@ function formatUtcTime(hour: number, minute: number): string {
 
 /** 5-minute steps: 0, 5, 10 … 55 */
 const MINUTE_STEPS = Array.from({ length: 12 }, (_, i) => i * 5);
-const HOURS        = Array.from({ length: 24 }, (_, i) => i);
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 // ─── Push helpers ─────────────────────────────────────────────────────────────
 
@@ -43,9 +43,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? "http://localhost:3000" 
+const API_BASE = import.meta.env.VITE_API_URL ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? "http://localhost:3000"
     : `${window.location.protocol}//${window.location.hostname}:3000`);
 
 async function fetchVapidPublicKey(): Promise<string> {
@@ -98,7 +98,7 @@ function PushNotificationSettingsCard() {
     navigator.serviceWorker.ready
       .then((reg) => reg.pushManager.getSubscription())
       .then((sub) => setCurrentSub(sub))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const getToken = useCallback(async (): Promise<string | null> => {
@@ -106,7 +106,7 @@ function PushNotificationSettingsCard() {
     try {
       const clerk = (window as any).Clerk;
       if (clerk?.session) return await clerk.session.getToken();
-    } catch {}
+    } catch { }
     return null;
   }, []);
 
@@ -263,8 +263,8 @@ function EmailSettingsCard() {
   const updatePrefs = useUpdatePreferences();
 
   // Local state — kept in sync with server data
-  const [hour,    setHour]    = useState<number>(20);
-  const [minute,  setMinute]  = useState<number>(0);
+  const [hour, setHour] = useState<number>(20);
+  const [minute, setMinute] = useState<number>(0);
   const [enabled, setEnabled] = useState<boolean>(true);
 
   // Sync from server whenever data arrives
@@ -333,14 +333,12 @@ function EmailSettingsCard() {
               setEnabled(next);
               save({ emailEnabled: next });
             }}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ${
-              enabled ? "bg-primary" : "bg-input"
-            }`}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ${enabled ? "bg-primary" : "bg-input"
+              }`}
           >
             <span
-              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
-                enabled ? "translate-x-5" : "translate-x-0"
-              }`}
+              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${enabled ? "translate-x-5" : "translate-x-0"
+                }`}
             />
           </button>
         </div>
@@ -350,7 +348,7 @@ function EmailSettingsCard() {
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              Send time (UTC)
+              Send time (IST)
             </label>
 
             <div className="flex items-center gap-2">
@@ -396,7 +394,7 @@ function EmailSettingsCard() {
                 ))}
               </select>
 
-              <span className="text-xs text-muted-foreground">UTC</span>
+              <span className="text-xs text-muted-foreground">IST</span>
             </div>
 
             {/* Live preview */}
@@ -522,17 +520,15 @@ export default function NotificationsPage() {
                 {notifications.map((notif) => (
                   <div
                     key={notif.id}
-                    className={`px-5 py-4 flex gap-3 items-start transition-colors hover:bg-muted/30 ${
-                      !notif.read ? "bg-primary/5 border-l-2 border-l-primary" : ""
-                    }`}
+                    className={`px-5 py-4 flex gap-3 items-start transition-colors hover:bg-muted/30 ${!notif.read ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                      }`}
                     data-testid={`notification-item-${notif.id}`}
                   >
                     <div
-                      className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        notif.read
+                      className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${notif.read
                           ? "bg-muted text-muted-foreground"
                           : "bg-primary/15 text-primary"
-                      }`}
+                        }`}
                     >
                       {notif.leetcodeUsername
                         ? notif.leetcodeUsername[0].toUpperCase()
