@@ -14,7 +14,7 @@ export function useMyProfile() {
   const myUsername = prefs?.leetcodeUsername || null;
 
   const setMyUsername = useCallback((username: string | null) => {
-    const newUsername = username ? username.trim() : null;
+    const newUsername = username ? username.trim().toLowerCase() : null;
     
     // Optimistically update the cache to show instant UI change
     queryClient.setQueryData(getGetPreferencesQueryKey(), (old: any) => {

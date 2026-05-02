@@ -61,7 +61,7 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
   if (digestHour   !== undefined) patch.digestHour   = digestHour;
   if (digestMinute !== undefined) patch.digestMinute = digestMinute;
   if (emailEnabled !== undefined) patch.emailEnabled = emailEnabled;
-  if (leetcodeUsername !== undefined) patch.leetcodeUsername = leetcodeUsername;
+  if (leetcodeUsername !== undefined) patch.leetcodeUsername = leetcodeUsername ? leetcodeUsername.toLowerCase() : null;
 
   const [updated] = await db
     .insert(userPreferencesTable)
