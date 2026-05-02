@@ -348,7 +348,7 @@ function EmailSettingsCard() {
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              Send time (IST)
+              Send time (UTC)
             </label>
 
             <div className="flex items-center gap-2">
@@ -394,7 +394,7 @@ function EmailSettingsCard() {
                 ))}
               </select>
 
-              <span className="text-xs text-muted-foreground">IST</span>
+              <span className="text-xs text-muted-foreground">UTC</span>
             </div>
 
             {/* Live preview */}

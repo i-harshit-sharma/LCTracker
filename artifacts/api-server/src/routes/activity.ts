@@ -209,17 +209,10 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
   let periodStart: Date;
 
   if (period === "day") {
-    // "Day" starts at 12:00 AM IST (UTC+5:30 = 330 minutes ahead of UTC).
-    // IST midnight = UTC 18:30 the *previous* day.
-    // Strategy: find the current date in IST, then express IST midnight as a UTC timestamp.
-    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // 330 min in ms
-    const nowInIST = new Date(now.getTime() + IST_OFFSET_MS);
-    // Midnight of the current IST day (in IST "clock time")
-    const istMidnight = new Date(
-      Date.UTC(nowInIST.getUTCFullYear(), nowInIST.getUTCMonth(), nowInIST.getUTCDate()),
+    // "Day" starts at 12:00 AM UTC
+    periodStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
-    // Shift back to UTC: subtract the IST offset so the timestamp points to IST midnight
-    periodStart = new Date(istMidnight.getTime() - IST_OFFSET_MS);
   } else if (period === "month") {
     periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   } else if (period === "year") {

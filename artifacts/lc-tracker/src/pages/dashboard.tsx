@@ -70,7 +70,7 @@ export default function DashboardPage() {
               Your network's real-time (within 5 mins) LeetCode activity
             </p>
           </div>
-          <Link href="/follows">
+          <Link href="/follows" className="max-sm:hidden">
             <span className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline cursor-pointer">
               <Users className="h-3.5 w-3.5" />
               Manage follows
@@ -254,12 +254,12 @@ export default function DashboardPage() {
                       >
                         <div
                           className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${idx === 0
-                              ? "bg-yellow-400/20 text-yellow-400"
-                              : idx === 1
-                                ? "bg-slate-400/20 text-slate-400"
-                                : idx === 2
-                                  ? "bg-orange-700/20 text-orange-700"
-                                  : "bg-muted text-muted-foreground"
+                            ? "bg-yellow-400/20 text-yellow-400"
+                            : idx === 1
+                              ? "bg-slate-400/20 text-slate-400"
+                              : idx === 2
+                                ? "bg-orange-700/20 text-orange-700"
+                                : "bg-muted text-muted-foreground"
                             }`}
                         >
                           {idx + 1}

@@ -31,15 +31,11 @@ export function startCronJobs(): void {
 		"* * * * *",
 		async () => {
 			const now = new Date();
-			// Digest times are stored in IST (UTC+5:30) because the frontend
-			// displays and accepts local Indian time. Shift UTC by +330 min.
-			const IST_OFFSET_MIN = 330; // +5 hours 30 minutes
-			const totalMinutes = now.getUTCHours() * 60 + now.getUTCMinutes() + IST_OFFSET_MIN;
-			const currentHour   = Math.floor(totalMinutes / 60) % 24;
-			const currentMinute = totalMinutes % 60;
+			const currentHour = now.getUTCHours();
+			const currentMinute = now.getUTCMinutes();
 
-			logger.debug({ currentHour, currentMinute }, "Cron: matching digest at IST time");
-			// Find all users whose digest time matches right now (IST)
+			logger.debug({ currentHour, currentMinute }, "Cron: matching digest at UTC time");
+			// Find all users whose digest time matches right now (UTC)
 			const targets = await db
 				.select({ userId: userPreferencesTable.userId })
 				.from(userPreferencesTable)
@@ -59,7 +55,7 @@ export function startCronJobs(): void {
 					hour: currentHour,
 					minute: currentMinute,
 				},
-				"Cron: dispatching digest emails",
+				"Cron: dispatching digest emails (UTC)",
 			);
 
 			try {
