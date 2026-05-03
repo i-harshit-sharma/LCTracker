@@ -274,18 +274,16 @@ export const GetDbProfileSummaryResponse = zod.object({
 });
 
 /**
- * @summary Fetch and save profile to DB (no follow)
+ * @summary Get daily solve counts for the last 365 days
  */
-export const SaveProfileToDbParams = zod.object({
+export const GetProfileHeatmapParams = zod.object({
   username: zod.coerce.string(),
 });
 
-export const SaveProfileToDbResponse = zod.object({
-  leetcodeUsername: zod.string(),
-  displayName: zod.string().nullish(),
-  avatarUrl: zod.string().nullish(),
-  totalSolved: zod.number().nullish(),
-  solvedInPeriod: zod.number(),
-  inDatabase: zod.boolean(),
-  recentSlugs: zod.array(zod.string()).optional(),
+export const GetProfileHeatmapResponseItem = zod.object({
+  date: zod.string(),
+  count: zod.number(),
 });
+export const GetProfileHeatmapResponse = zod.array(
+  GetProfileHeatmapResponseItem,
+);

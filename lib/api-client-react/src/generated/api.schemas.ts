@@ -159,6 +159,11 @@ export interface DeletePushSubscriptionBody {
   endpoint: string;
 }
 
+export interface HeatmapDataPoint {
+  date: string;
+  count: number;
+}
+
 export interface PushSubscribeResponse {
   success: boolean;
 }

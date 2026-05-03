@@ -27,6 +27,7 @@ import type {
   GetLeaderboardParams,
   GetVapidPublicKey200,
   HealthStatus,
+  HeatmapDataPoint,
   LeaderboardEntry,
   LeetcodeProfile,
   ListActivityParams,
@@ -1595,85 +1596,90 @@ export function useGetDbProfileSummary<
 }
 
 /**
- * @summary Fetch and save profile to DB (no follow)
+ * @summary Get daily solve counts for the last 365 days
  */
-export const getSaveProfileToDbUrl = (username: string) => {
-  return `/api/profiles/${username}/save`;
+export const getGetProfileHeatmapUrl = (username: string) => {
+  return `/api/profiles/${username}/heatmap`;
 };
 
-export const saveProfileToDb = async (
+export const getProfileHeatmap = async (
   username: string,
   options?: RequestInit,
-): Promise<DbProfileSummary> => {
-  return customFetch<DbProfileSummary>(getSaveProfileToDbUrl(username), {
+): Promise<HeatmapDataPoint[]> => {
+  return customFetch<HeatmapDataPoint[]>(getGetProfileHeatmapUrl(username), {
     ...options,
-    method: "POST",
+    method: "GET",
   });
 };
 
-export const getSaveProfileToDbMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof saveProfileToDb>>,
-    TError,
-    { username: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof saveProfileToDb>>,
-  TError,
-  { username: string },
-  TContext
-> => {
-  const mutationKey = ["saveProfileToDb"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof saveProfileToDb>>,
-    { username: string }
-  > = (props) => {
-    const { username } = props ?? {};
-
-    return saveProfileToDb(username, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
+export const getGetProfileHeatmapQueryKey = (username: string) => {
+  return [`/api/profiles/${username}/heatmap`] as const;
 };
 
-export type SaveProfileToDbMutationResult = NonNullable<
-  Awaited<ReturnType<typeof saveProfileToDb>>
->;
+export const getGetProfileHeatmapQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProfileHeatmap>>,
+  TError = ErrorType<unknown>,
+>(
+  username: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProfileHeatmap>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-export type SaveProfileToDbMutationError = ErrorType<unknown>;
+  const queryKey =
+    queryOptions?.queryKey ?? getGetProfileHeatmapQueryKey(username);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProfileHeatmap>>
+  > = ({ signal }) =>
+    getProfileHeatmap(username, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!username,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProfileHeatmap>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProfileHeatmapQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProfileHeatmap>>
+>;
+export type GetProfileHeatmapQueryError = ErrorType<unknown>;
 
 /**
- * @summary Fetch and save profile to DB (no follow)
+ * @summary Get daily solve counts for the last 365 days
  */
-export const useSaveProfileToDb = <
+
+export function useGetProfileHeatmap<
+  TData = Awaited<ReturnType<typeof getProfileHeatmap>>,
   TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof saveProfileToDb>>,
-    TError,
-    { username: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof saveProfileToDb>>,
-  TError,
-  { username: string },
-  TContext
-> => {
-  return useMutation(getSaveProfileToDbMutationOptions(options));
-};
+>(
+  username: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProfileHeatmap>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProfileHeatmapQueryOptions(username, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

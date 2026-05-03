@@ -16,12 +16,14 @@ import {
   getGetLeaderboardQueryKey,
   getGetActivityStatsQueryKey,
   getListActivityQueryKey,
+  useGetProfileHeatmap,
   type LeetcodeFollowingEntry,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { usePostHog } from "@posthog/react";
 import React from "react";
+import { Heatmap } from "@/components/Heatmap";
 
 function StatPill({
   label,
@@ -364,6 +366,21 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
+            {/* Consistency Heatmap */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  Consistency
+                  <span className="text-xs font-normal text-muted-foreground ml-auto">
+                    Last 365 days
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-6">
+                <HeatmapWrapper username={username!} />
+              </CardContent>
+            </Card>
+
             {/* Following section */}
             {profile.following.length > 0 && (
               <Card>
@@ -467,6 +484,17 @@ export default function ProfilePage() {
         )}
       </main>
     </div>
+  );
+}
+
+function HeatmapWrapper({ username }: { username: string }) {
+  const { data: heatmapData, isLoading } = useGetProfileHeatmap(username);
+  
+  return (
+    <Heatmap 
+      data={Array.isArray(heatmapData) ? heatmapData : []} 
+      isLoading={isLoading} 
+    />
   );
 }
 

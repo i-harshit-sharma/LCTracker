@@ -20,7 +20,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, gte, lt, and, sql } from "drizzle-orm";
 import { db, solvedProblemsTable, leetcodeProfilesTable } from "@workspace/db";
-import { GetLeetcodeProfileParams, GetLeetcodeProfileResponse, GetDbProfileSummaryResponse } from "@workspace/api-zod";
+import { GetLeetcodeProfileParams, GetLeetcodeProfileResponse, GetDbProfileSummaryResponse, GetProfileHeatmapParams, GetProfileHeatmapResponse } from "@workspace/api-zod";
 import { getLeetCodeProfile, getLeetCodeFollowing } from "../lib/leetcode";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
@@ -332,6 +332,36 @@ router.post("/profiles/:username/save", requireAuth, async (req, res): Promise<v
       savedUsername: username,
     },
   });
+});
+
+/**
+ * GET /api/profiles/:username/heatmap
+ *
+ * Returns daily solve counts for the last 365 days.
+ */
+router.get("/profiles/:username/heatmap", requireAuth, async (req, res): Promise<void> => {
+  const { username } = GetProfileHeatmapParams.parse(req.params);
+
+  const oneYearAgo = new Date();
+  oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+  oneYearAgo.setHours(0, 0, 0, 0);
+
+  const results = await db
+    .select({
+      date: sql<string>`DATE(${solvedProblemsTable.solvedAt})::text`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(solvedProblemsTable)
+    .where(
+      and(
+        eq(solvedProblemsTable.leetcodeUsername, username),
+        gte(solvedProblemsTable.solvedAt, oneYearAgo),
+      ),
+    )
+    .groupBy(sql`DATE(${solvedProblemsTable.solvedAt})`)
+    .orderBy(sql`DATE(${solvedProblemsTable.solvedAt})`);
+
+  res.json(GetProfileHeatmapResponse.parse(results));
 });
 
 export default router;

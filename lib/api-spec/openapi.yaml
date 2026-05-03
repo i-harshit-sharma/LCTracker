@@ -379,11 +379,11 @@ paths:
         "404":
           description: Profile not found in DB
 
-  /profiles/{username}/save:
-    post:
-      operationId: saveProfileToDb
+  /profiles/{username}/heatmap:
+    get:
+      operationId: getProfileHeatmap
       tags: [profiles]
-      summary: Fetch and save profile to DB (no follow)
+      summary: Get daily solve counts for the last 365 days
       parameters:
         - name: username
           in: path
@@ -392,11 +392,13 @@ paths:
             type: string
       responses:
         "200":
-          description: Profile saved
+          description: Heatmap data
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DbProfileSummary"
+                type: array
+                items:
+                  $ref: "#/components/schemas/HeatmapDataPoint"
 
 components:
   schemas:
@@ -671,6 +673,17 @@ components:
           type: string
       required:
         - endpoint
+
+    HeatmapDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        count:
+          type: integer
+      required:
+        - date
+        - count
 
     PushSubscribeResponse:
       type: object
