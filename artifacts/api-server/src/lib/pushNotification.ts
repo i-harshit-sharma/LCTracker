@@ -7,8 +7,8 @@
  */
 
 import webPush from "web-push";
-import { db, pushSubscriptionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, pushSubscriptionsTable, eq } from "@workspace/db";
+
 import { logger } from "./logger";
 
 // ── VAPID setup ───────────────────────────────────────────────────────────────

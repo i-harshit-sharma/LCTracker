@@ -400,6 +400,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/HeatmapDataPoint"
 
+  /profiles/{username}/save:
+    post:
+      operationId: saveProfileToDb
+      tags: [profiles]
+      summary: Fetch and save profile to DB (no follow)
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DbProfileSummary"
+
 components:
   schemas:
     HealthStatus:

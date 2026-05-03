@@ -7,8 +7,8 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, followsTable, leetcodeProfilesTable } from "@workspace/db";
+
+import { db, followsTable, leetcodeProfilesTable, eq, and, desc } from "@workspace/db";
 import {
   ListFollowsResponse,
   CreateFollowBody,

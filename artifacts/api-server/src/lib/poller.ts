@@ -17,8 +17,8 @@
  * a newly followed user's historical solved problems at follow time.
  */
 
-import { db, followsTable, solvedProblemsTable, notificationsTable, leetcodeProfilesTable } from "@workspace/db";
-import { eq, inArray, and } from "drizzle-orm";
+import { db, followsTable, leetcodeProfilesTable, solvedProblemsTable, notificationsTable, eq, inArray, and } from "@workspace/db";
+
 import {
   getRecentAcceptedSubmissions,
   getLeetCodeProfile,

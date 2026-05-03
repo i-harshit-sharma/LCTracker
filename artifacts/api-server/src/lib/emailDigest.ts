@@ -12,8 +12,8 @@
  * The email is plain HTML; no external template engine is required.
  */
 
-import { db, followsTable, solvedProblemsTable } from "@workspace/db";
-import { eq, gte, lte, and, inArray } from "drizzle-orm";
+import { db, followsTable, solvedProblemsTable, eq, gte, lte, and, inArray } from "@workspace/db";
+
 import { clerkClient } from "@clerk/express";
 import { logger } from "./logger";
 

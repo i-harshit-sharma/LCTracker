@@ -7,8 +7,8 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
-import { db, notificationsTable } from "@workspace/db";
+
+import { db, notificationsTable, eq, and, desc, sql } from "@workspace/db";
 import {
   ListNotificationsResponse,
   ListNotificationsQueryParams,

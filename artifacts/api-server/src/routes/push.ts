@@ -7,8 +7,8 @@
  */
 
 import { Router, type IRouter } from "express";
-import { db, pushSubscriptionsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, pushSubscriptionsTable, eq, and } from "@workspace/db";
+
 import {
   GetVapidPublicKeyResponse,
   SavePushSubscriptionBody,

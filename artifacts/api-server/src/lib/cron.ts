@@ -18,8 +18,8 @@
  */
 
 import cron from "node-cron";
-import { db, userPreferencesTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { db, userPreferencesTable, and, eq } from "@workspace/db";
+
 import { sendDailyDigests } from "./emailDigest";
 import { runPollCycle } from "./poller";
 import { logger } from "./logger";

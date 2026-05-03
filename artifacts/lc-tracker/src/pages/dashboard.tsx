@@ -809,7 +809,7 @@ export default function DashboardPage() {
                   }
 
                   return (
-                    <div className="divide-y divide-border max-h-130 overflow-y-auto">
+                    <div className="divide-y divide-border max-h-120 overflow-y-auto">
                       {merged.map((entry, idx) => {
                         const isMe = !!entry._isMe;
                         return (

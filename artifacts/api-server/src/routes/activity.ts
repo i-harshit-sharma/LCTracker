@@ -7,8 +7,8 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, lt, inArray, and, sql } from "drizzle-orm";
-import { db, followsTable, solvedProblemsTable, leetcodeProfilesTable } from "@workspace/db";
+
+import { db, followsTable, solvedProblemsTable, leetcodeProfilesTable, eq, desc, gte, lt, inArray, and, sql } from "@workspace/db";
 import {
   ListActivityResponse,
   ListActivityQueryParams,

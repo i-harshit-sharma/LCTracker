@@ -1683,3 +1683,87 @@ export function useGetProfileHeatmap<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Fetch and save profile to DB (no follow)
+ */
+export const getSaveProfileToDbUrl = (username: string) => {
+  return `/api/profiles/${username}/save`;
+};
+
+export const saveProfileToDb = async (
+  username: string,
+  options?: RequestInit,
+): Promise<DbProfileSummary> => {
+  return customFetch<DbProfileSummary>(getSaveProfileToDbUrl(username), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSaveProfileToDbMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveProfileToDb>>,
+    TError,
+    { username: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveProfileToDb>>,
+  TError,
+  { username: string },
+  TContext
+> => {
+  const mutationKey = ["saveProfileToDb"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveProfileToDb>>,
+    { username: string }
+  > = (props) => {
+    const { username } = props ?? {};
+
+    return saveProfileToDb(username, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveProfileToDbMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveProfileToDb>>
+>;
+
+export type SaveProfileToDbMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Fetch and save profile to DB (no follow)
+ */
+export const useSaveProfileToDb = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveProfileToDb>>,
+    TError,
+    { username: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveProfileToDb>>,
+  TError,
+  { username: string },
+  TContext
+> => {
+  return useMutation(getSaveProfileToDbMutationOptions(options));
+};

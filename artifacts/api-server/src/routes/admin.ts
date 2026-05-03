@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray, and } from "drizzle-orm";
-import { db, followsTable, leetcodeProfilesTable } from "@workspace/db";
+
+import { db, followsTable, leetcodeProfilesTable, eq, and, inArray } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
 import { getLeetCodeProfile } from "../lib/leetcode";
 import { backfillUserProblems } from "../lib/poller";

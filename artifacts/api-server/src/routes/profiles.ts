@@ -18,8 +18,8 @@
  */
 
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, lt, and, sql } from "drizzle-orm";
-import { db, solvedProblemsTable, leetcodeProfilesTable } from "@workspace/db";
+
+import { db, solvedProblemsTable, leetcodeProfilesTable, sql, eq, desc, gte, lt, and } from "@workspace/db";
 import { GetLeetcodeProfileParams, GetLeetcodeProfileResponse, GetDbProfileSummaryResponse, GetProfileHeatmapParams, GetProfileHeatmapResponse } from "@workspace/api-zod";
 import { getLeetCodeProfile, getLeetCodeFollowing } from "../lib/leetcode";
 import { requireAuth } from "../lib/auth";

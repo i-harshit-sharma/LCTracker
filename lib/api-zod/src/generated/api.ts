@@ -287,3 +287,20 @@ export const GetProfileHeatmapResponseItem = zod.object({
 export const GetProfileHeatmapResponse = zod.array(
   GetProfileHeatmapResponseItem,
 );
+
+/**
+ * @summary Fetch and save profile to DB (no follow)
+ */
+export const SaveProfileToDbParams = zod.object({
+  username: zod.coerce.string(),
+});
+
+export const SaveProfileToDbResponse = zod.object({
+  leetcodeUsername: zod.string(),
+  displayName: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  totalSolved: zod.number().nullish(),
+  solvedInPeriod: zod.number(),
+  inDatabase: zod.boolean(),
+  recentSlugs: zod.array(zod.string()).optional(),
+});
