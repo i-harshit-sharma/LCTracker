@@ -1,4 +1,5 @@
 import pino from "pino";
+import posthog from "./posthog";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -23,6 +24,23 @@ export const logger = pino(
       "req.headers.cookie",
       "res.headers['set-cookie']",
     ],
+    hooks: {
+      logMethod(inputArgs, method) {
+        if (method.name === "error" || (this as any).level === 50) {
+          const msg = inputArgs.find((arg) => typeof arg === "string");
+          const obj = inputArgs.find((arg) => typeof arg === "object");
+          posthog.capture({
+            distinctId: "api-server",
+            event: "Server Error Logged",
+            properties: {
+              message: msg,
+              ...(obj || {}),
+            },
+          });
+        }
+        return method.apply(this, inputArgs as any);
+      },
+    },
   },
   transport,
 );
