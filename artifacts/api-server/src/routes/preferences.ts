@@ -9,6 +9,7 @@ import { Router, type IRouter } from "express";
 import { db, userPreferencesTable } from "@workspace/db";
 import { GetPreferencesResponse, UpdatePreferencesBody } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
+import { serializeDates } from "../lib/serialize";
 
 const router: IRouter = Router();
 
@@ -35,14 +36,7 @@ router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(
-    GetPreferencesResponse.parse({
-      digestHour:   prefs.digestHour,
-      digestMinute: prefs.digestMinute,
-      emailEnabled: prefs.emailEnabled,
-      leetcodeUsername: prefs.leetcodeUsername,
-    }),
-  );
+  res.json(GetPreferencesResponse.parse(serializeDates(prefs)));
 });
 
 router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
@@ -77,14 +71,7 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
     })
     .returning();
 
-  res.json(
-    GetPreferencesResponse.parse({
-      digestHour:   updated.digestHour,
-      digestMinute: updated.digestMinute,
-      emailEnabled: updated.emailEnabled,
-      leetcodeUsername: updated.leetcodeUsername,
-    }),
-  );
+  res.json(GetPreferencesResponse.parse(serializeDates(updated)));
 });
 
 export default router;
