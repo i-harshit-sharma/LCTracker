@@ -90,8 +90,10 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
   const startOfToday = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
+  const day = startOfToday.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
   const startOfWeek = new Date(startOfToday);
-  startOfWeek.setUTCDate(startOfWeek.getUTCDate() - startOfWeek.getUTCDay());
+  startOfWeek.setUTCDate(startOfToday.getUTCDate() - diff);
 
   // Count today's solves
   const todayRows = await db
