@@ -194,10 +194,14 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
     const data = await gqlRequest<{
       matchedUser: {
         username: string;
-        profile: { realName: string | null; userAvatar: string | null; aboutMe: string | null };
+        profile: {
+          realName: string | null;
+          userAvatar: string | null;
+          aboutMe: string | null;
+        } | null;
         submitStats: {
           acSubmissionNum: { difficulty: string; count: number }[];
-        };
+        } | null;
       } | null;
     }>(PROFILE_QUERY, { username });
 
@@ -205,18 +209,18 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
 
     const { matchedUser } = data;
     const isPrivate = !matchedUser.profile; // Simplistic check, if no profile object, it's private or deleted
-    const stats = matchedUser.submitStats.acSubmissionNum;
+    const stats = matchedUser.submitStats?.acSubmissionNum ?? [];
     const getCount = (d: string) => stats.find((s) => s.difficulty === d)?.count ?? null;
 
     return {
       username: matchedUser.username,
-      realName: matchedUser.profile.realName,
-      userAvatar: matchedUser.profile.userAvatar,
+      realName: matchedUser.profile?.realName ?? null,
+      userAvatar: matchedUser.profile?.userAvatar ?? null,
       totalSolved: getCount("All"),
       easySolved: getCount("Easy"),
       mediumSolved: getCount("Medium"),
       hardSolved: getCount("Hard"),
-      aboutMe: matchedUser.profile.aboutMe ?? null,
+      aboutMe: matchedUser.profile?.aboutMe ?? null,
       isPrivate,
     };
   } catch (err) {

@@ -109,7 +109,7 @@ export async function runPollCycle(): Promise<void> {
  */
 async function pollUser(username: string): Promise<void> {
   const [submissions, profile, following, oldProfile] = await Promise.all([
-    getRecentAcceptedSubmissions(username, 15),
+    getRecentAcceptedSubmissions(username, 20),
     getLeetCodeProfile(username),
     getLeetCodeFollowing(username, 30),
     db
@@ -152,19 +152,20 @@ async function pollUser(username: string): Promise<void> {
       });
   }
 
-  if (!submissions.length) return;
-
   // 3. Check which slugs we've already stored (to find genuinely new ones)
   const slugs = submissions.map((s) => s.titleSlug);
-  const existing = await db
-    .select({ problemSlug: solvedProblemsTable.problemSlug })
-    .from(solvedProblemsTable)
-    .where(
-      and(
-        eq(solvedProblemsTable.leetcodeUsername, username),
-        inArray(solvedProblemsTable.problemSlug, slugs),
-      ),
-    );
+  const existing =
+    slugs.length > 0
+      ? await db
+          .select({ problemSlug: solvedProblemsTable.problemSlug })
+          .from(solvedProblemsTable)
+          .where(
+            and(
+              eq(solvedProblemsTable.leetcodeUsername, username),
+              inArray(solvedProblemsTable.problemSlug, slugs),
+            ),
+          )
+      : [];
 
   const existingSlugs = new Set(existing.map((r) => r.problemSlug));
   const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
@@ -385,22 +386,20 @@ export async function backfillUserProblems(username: string): Promise<void> {
   logger.info({ username, totalSolved, limit }, "Fetching full submission history");
 
   const submissions = await getRecentAcceptedSubmissions(username, limit);
-  if (!submissions.length) {
-    logger.info({ username }, "No submissions found during backfill");
-    return;
-  }
-
   // Step 2 — filter out slugs already stored in the DB
   const slugs = submissions.map((s) => s.titleSlug);
-  const existing = await db
-    .select({ problemSlug: solvedProblemsTable.problemSlug })
-    .from(solvedProblemsTable)
-    .where(
-      and(
-        eq(solvedProblemsTable.leetcodeUsername, username),
-        inArray(solvedProblemsTable.problemSlug, slugs),
-      ),
-    );
+  const existing =
+    slugs.length > 0
+      ? await db
+          .select({ problemSlug: solvedProblemsTable.problemSlug })
+          .from(solvedProblemsTable)
+          .where(
+            and(
+              eq(solvedProblemsTable.leetcodeUsername, username),
+              inArray(solvedProblemsTable.problemSlug, slugs),
+            ),
+          )
+      : [];
 
   const existingSlugs = new Set(existing.map((r) => r.problemSlug));
   const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
