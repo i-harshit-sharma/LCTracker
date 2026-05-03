@@ -206,6 +206,59 @@ function MyProfileBanner({
   );
 }
 
+function PollerStatus() {
+  const [status, setStatus] = useState<{ nextPollAt: string; isRunning: boolean } | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        // Use the same base URL logic as other API calls if possible,
+        // but dashboard.tsx seems to use custom hooks.
+        // I'll assume /api/poller/status is reachable relative to the origin
+        // or using the VITE_API_URL if defined.
+        const apiUrl = import.meta.env.VITE_API_URL || "";
+        const res = await fetch(`${apiUrl}/api/poller/status`);
+        const data = await res.json();
+        setStatus(data);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 15000); // refresh status every 15s
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!status?.nextPollAt) return;
+    const updateTime = () => {
+      const next = new Date(status.nextPollAt).getTime();
+      const now = Date.now();
+      const diff = next - now;
+      if (diff <= 0) {
+        setTimeLeft("soon...");
+        return;
+      }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${mins}m ${secs}s`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [status]);
+
+  if (!timeLeft) return null;
+
+  return (
+    <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full border border-border/50 backdrop-blur-sm">
+      <div className={`h-1.5 w-1.5 rounded-full ${status?.isRunning ? 'bg-orange-500 animate-pulse' : 'bg-primary'}`} />
+      <span>Next update in <span className="text-foreground tabular-nums">{timeLeft}</span></span>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const posthog = usePostHog();
   const search = useSearch();
@@ -385,6 +438,9 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground mt-0.5">
               Your network's real-time (within 5 mins) LeetCode activity
             </p>
+            <div className="mt-2">
+              <PollerStatus />
+            </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {profileLoading ? (

@@ -607,7 +607,6 @@ async function runGlobalScanner(): Promise<void> {
       // Batch progress update
       if (processedCount % 50 === 0) {
         await updateLastScannedId(id);
-        logger.info({ id }, "Scanner: Progress saved to database");
       }
 
       // Speed control: fast catch-up if far behind

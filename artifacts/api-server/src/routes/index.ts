@@ -8,6 +8,7 @@ import preferencesRouter from "./preferences";
 import pushRouter from "./push";
 import logsRouter from "./logs";
 import adminRouter from "./admin";
+import pollerRouter from "./poller";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,7 @@ router.use(preferencesRouter);
 router.use(pushRouter);
 router.use(logsRouter);
 router.use(adminRouter);
+router.use(pollerRouter);
 
 export default router;
 
