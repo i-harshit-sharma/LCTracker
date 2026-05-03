@@ -43,6 +43,8 @@ const NOTIFICATION_THRESHOLD_MS = 10 * 60 * 1_000;
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
 let isRunning = false;
+let lastRunAt: Date | null = null;
+let lastRunDurationMs: number | null = null;
 
 /**
  * Runs a single complete poll cycle across all followed LeetCode usernames.
@@ -54,6 +56,7 @@ export async function runPollCycle(): Promise<void> {
     return;
   }
   isRunning = true;
+  lastRunAt = new Date();
   logger.info("Starting LeetCode poll cycle");
   
   const startTime = Date.now();
@@ -93,6 +96,7 @@ export async function runPollCycle(): Promise<void> {
     }
 
     logger.info("Poll cycle complete");
+    lastRunDurationMs = Date.now() - startTime;
     posthog.capture({
       distinctId: "api-server",
       event: "Poll Cycle Completed",
@@ -517,6 +521,7 @@ async function updateLastScannedId(id: number) {
  * This identifies solves for any tracked user, even if their profile is private.
  */
 async function runGlobalScanner(): Promise<void> {
+  
   const sessionToken = process.env.LEETCODE_SESSION;
   const csrfToken = process.env.LEETCODE_CSRF_TOKEN;
 
@@ -714,4 +719,17 @@ export function stopPoller(): void {
     pollerTimer = null;
     logger.info("LeetCode poller stopped");
   }
+}
+
+/**
+ * Returns the current status of the background poller,
+ * including when the next update is scheduled.
+ */
+export function getPollerStatus() {
+  return {
+    isRunning,
+    lastRunAt,
+    lastRunDurationMs,
+    pollIntervalMs: POLL_INTERVAL_MS,
+  };
 }

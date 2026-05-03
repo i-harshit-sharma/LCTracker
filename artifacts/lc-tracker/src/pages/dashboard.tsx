@@ -217,8 +217,12 @@ function PollerStatus() {
         // but dashboard.tsx seems to use custom hooks.
         // I'll assume /api/poller/status is reachable relative to the origin
         // or using the VITE_API_URL if defined.
-        const apiUrl = import.meta.env.VITE_API_URL || "";
-        const res = await fetch(`${apiUrl}/api/poller/status`);
+        // const apiUrl = import.meta.env.VITE_API_URL || "";
+        const API_BASE = import.meta.env.VITE_API_URL ||
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? "http://localhost:3000"
+            : "");
+        const res = await fetch(`${API_BASE}/api/poller/status`);
         const data = await res.json();
         setStatus(data);
       } catch (err) {
