@@ -75,6 +75,8 @@ export interface ActivityStats {
   topDifficulty: string;
   /** @nullable */
   mostActiveUser?: string | null;
+  /** @nullable */
+  mostActiveDisplayName?: string | null;
 }
 
 export interface LeaderboardEntry {

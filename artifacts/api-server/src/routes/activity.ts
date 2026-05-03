@@ -136,16 +136,18 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
   const activeRows = await db
     .select({
       leetcodeUsername: solvedProblemsTable.leetcodeUsername,
+      displayName: leetcodeProfilesTable.displayName,
       count: sql<number>`count(*)::int`,
     })
     .from(solvedProblemsTable)
+    .leftJoin(leetcodeProfilesTable, eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username))
     .where(
       and(
         inArray(solvedProblemsTable.leetcodeUsername, usernames),
         gte(solvedProblemsTable.solvedAt, startOfWeek),
       ),
     )
-    .groupBy(solvedProblemsTable.leetcodeUsername)
+    .groupBy(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.displayName)
     .orderBy(desc(sql`count(*)`))
     .limit(1);
 
@@ -155,6 +157,7 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       solvedThisWeek: weekRows[0]?.count ?? 0,
       topDifficulty: diffRows[0]?.difficulty ?? "None",
       mostActiveUser: activeRows[0]?.leetcodeUsername ?? null,
+      mostActiveDisplayName: activeRows[0]?.displayName ?? null,
     }),
   );
 });

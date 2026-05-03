@@ -132,6 +132,7 @@ export const GetActivityStatsResponse = zod.object({
   solvedThisWeek: zod.number(),
   topDifficulty: zod.string(),
   mostActiveUser: zod.string().nullish(),
+  mostActiveDisplayName: zod.string().nullish(),
 });
 
 /**

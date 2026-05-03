@@ -339,7 +339,7 @@ export default function DashboardPage() {
           />
           <StatCard
             label="Most active"
-            value={stats?.mostActiveUser ?? "—"}
+            value={stats?.mostActiveDisplayName || stats?.mostActiveUser || "—"}
             icon={Trophy}
             loading={statsLoading}
           />
