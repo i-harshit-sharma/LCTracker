@@ -18,6 +18,7 @@ import { requireAuth } from "../lib/auth";
 import { getLeetCodeProfile } from "../lib/leetcode";
 import { serializeDates } from "../lib/serialize";
 import { backfillUserProblems } from "../lib/poller";
+import posthog from "../lib/posthog";
 
 const router: IRouter = Router();
 
@@ -140,6 +141,14 @@ router.post("/follows", requireAuth, async (req, res): Promise<void> => {
 
   req.log.info({ userId, leetcodeUsername }, "New follow created");
 
+  posthog.capture({
+    distinctId: userId,
+    event: "User Followed",
+    properties: {
+      leetcodeUsername,
+    },
+  });
+
   // Backfill historical solved problems in the background so the activity feed
   // and leaderboard are populated immediately — no await so the response is fast.
   backfillUserProblems(leetcodeUsername).catch((err) =>
@@ -168,6 +177,16 @@ router.delete("/follows/:id", requireAuth, async (req, res): Promise<void> => {
       ),
     )
     .returning();
+
+  if (deleted) {
+    posthog.capture({
+      distinctId: userId,
+      event: "User Unfollowed",
+      properties: {
+        leetcodeUsername: deleted.leetcodeUsername,
+      },
+    });
+  }
 
   if (!deleted) {
     res.status(404).json({ error: "Follow not found" });

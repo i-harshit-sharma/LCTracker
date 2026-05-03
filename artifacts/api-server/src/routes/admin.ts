@@ -6,6 +6,7 @@ import { getLeetCodeProfile } from "../lib/leetcode";
 import { backfillUserProblems } from "../lib/poller";
 import { serializeDates } from "../lib/serialize";
 import { z } from "zod";
+import posthog from "../lib/posthog";
 
 const router: IRouter = Router();
 
@@ -123,6 +124,16 @@ router.post("/admin/bulk-follow", requireAuth, async (req, res): Promise<void> =
   }
 
   res.json(results);
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Admin Bulk Follow Executed",
+    properties: {
+      addedCount: results.added.length,
+      alreadyFollowingCount: results.alreadyFollowing.length,
+      notFoundCount: results.notFound.length,
+    },
+  });
 });
 
 /**
@@ -144,6 +155,14 @@ router.get("/admin/export-follows", requireAuth, async (req, res): Promise<void>
 
   const usernames = follows.map(f => f.leetcodeUsername);
   res.json(usernames);
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Admin Export Follows Executed",
+    properties: {
+      count: usernames.length,
+    },
+  });
 });
 
 export default router;
