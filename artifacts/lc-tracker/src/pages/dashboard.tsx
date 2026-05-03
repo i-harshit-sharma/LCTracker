@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { ExternalLink, Trophy, Activity, TrendingUp, Users, Flame, CheckCircle2, User, X, Pencil } from "lucide-react";
+import { ExternalLink, Trophy, Activity, TrendingUp, Users, Flame, CheckCircle2, User, X, Pencil, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DifficultyBadge } from "@/components/DifficultyBadge";
@@ -55,23 +56,43 @@ function StatCard({
   value,
   icon: Icon,
   loading,
+  info,
 }: {
   label: string;
   value: string | number;
   icon: React.ElementType;
   loading?: boolean;
+  info?: string;
 }) {
   return (
     <Card>
       <CardContent className="pt-5 pb-5">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">{label}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-muted-foreground">{label}</span>
+            {info && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-help transition-colors" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-50 text-xs leading-relaxed">
+                    {info}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
           <Icon className="h-4 w-4 text-primary opacity-70" />
         </div>
         {loading ? (
           <Skeleton className="h-7 w-16 mt-1" />
         ) : (
-          <p className="text-2xl font-bold" data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+          <p
+            className="text-2xl font-bold truncate"
+            title={value.toString()}
+            data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}
+          >
             {value}
           </p>
         )}
@@ -342,6 +363,7 @@ export default function DashboardPage() {
             value={stats?.mostActiveDisplayName || stats?.mostActiveUser || "—"}
             icon={Trophy}
             loading={statsLoading}
+            info="If multiple users have the same number of solves, the one who reached that count first is shown."
           />
         </div>
 
