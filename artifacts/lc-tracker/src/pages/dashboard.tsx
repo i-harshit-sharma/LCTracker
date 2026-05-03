@@ -17,7 +17,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMyProfile } from "@/hooks/use-my-profile";
@@ -29,22 +29,22 @@ function generateWeeks() {
   const startUTC = new Date(Date.UTC(2026, 3, 27)); // April 27, 2026
   const now = new Date();
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  
+
   let current = new Date(startUTC);
   let weekNum = 1;
   while (current <= todayUTC) {
     const end = new Date(current);
     end.setUTCDate(end.getUTCDate() + 6);
-    
+
     const startStr = current.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    
+
     // Unshift to put the most recent week at the top
     weeks.unshift({
       value: `week-${current.toISOString().split("T")[0]}`,
       label: `Week ${weekNum} (${startStr} - ${endStr})`
     });
-    
+
     current.setUTCDate(current.getUTCDate() + 7);
     weekNum++;
   }
@@ -215,11 +215,12 @@ export default function DashboardPage() {
   const [lbScope, setLbScope] = useState<"following" | "global">("following");
   const [lbPeriod, setLbPeriod] = useState<string>("week");
   const [actFilter, setActFilter] = useState<"all" | "unsolved">("all");
+  const [actView, setActView] = useState<"recent" | "grouped">("recent");
   const weeks = generateWeeks();
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod as any });
   const { myUsername, setMyUsername, isLoading: profileLoading } = useMyProfile();
-  const { data: activity, isLoading: actLoading } = useListActivity({ 
+  const { data: activity, isLoading: actLoading } = useListActivity({
     limit: 30,
     ...(myUsername ? { myUsername } : {})
   });
@@ -281,12 +282,12 @@ export default function DashboardPage() {
     ...(myProfile?.recentProblems?.map((p) => p.problemSlug.toLowerCase()) ?? []),
     ...(Array.isArray(activity)
       ? activity
-          .filter(
-            (item) =>
-              !!myUsername &&
-              item.leetcodeUsername.toLowerCase() === myUsername.toLowerCase(),
-          )
-          .map((item) => item.problemSlug.toLowerCase())
+        .filter(
+          (item) =>
+            !!myUsername &&
+            item.leetcodeUsername.toLowerCase() === myUsername.toLowerCase(),
+        )
+        .map((item) => item.problemSlug.toLowerCase())
       : []),
   ]);
 
@@ -299,6 +300,60 @@ export default function DashboardPage() {
     })
     : [];
 
+  const groupedActivity = useMemo(() => {
+    if (!filteredActivity.length) return { known: [], private: [] };
+
+    const groups: Record<string, {
+      problemSlug: string;
+      problemTitle: string;
+      difficulty: string;
+      solvers: { leetcodeUsername: string; displayName: string | null; avatarUrl: string | null; solvedAt: Date }[];
+      latestSolve: Date;
+      isPrivate: boolean;
+    }> = {};
+
+    filteredActivity.forEach(item => {
+      const isPrivate = item.problemSlug.startsWith("private-") || item.problemSlug.startsWith("unknown-");
+      // For private solves, we group them by difficulty so they appear as one entry per difficulty
+      // OR we could keep them separate? User said "tells who have solved that".
+      // If we group them by difficulty, we can see everyone who had a private solve of that level.
+      const groupKey = isPrivate ? `private-${item.difficulty.toLowerCase()}` : item.problemSlug;
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          problemSlug: item.problemSlug,
+          problemTitle: isPrivate ? `Private ${item.difficulty} Problems` : item.problemTitle,
+          difficulty: item.difficulty,
+          solvers: [],
+          latestSolve: new Date(item.solvedAt),
+          isPrivate,
+        };
+      }
+
+      // Avoid duplicate solvers in the same group (optional, but cleaner)
+      if (!groups[groupKey].solvers.find(s => s.leetcodeUsername === item.leetcodeUsername)) {
+        groups[groupKey].solvers.push({
+          leetcodeUsername: item.leetcodeUsername,
+          displayName: item.displayName ?? null,
+          avatarUrl: item.avatarUrl ?? null,
+          solvedAt: new Date(item.solvedAt),
+        });
+      }
+
+      const solvedAt = new Date(item.solvedAt);
+      if (solvedAt > groups[groupKey].latestSolve) {
+        groups[groupKey].latestSolve = solvedAt;
+      }
+    });
+
+    const sorted = Object.values(groups).sort((a, b) => b.latestSolve.getTime() - a.latestSolve.getTime());
+
+    return {
+      known: sorted.filter(g => !g.isPrivate),
+      private: sorted.filter(g => g.isPrivate),
+    };
+  }, [filteredActivity]);
+
   const periodLabels: Record<string, string> = {
     day: "today",
     week: "this week",
@@ -306,8 +361,8 @@ export default function DashboardPage() {
     year: "this year",
     all: "all time",
   };
-  
-  const currentPeriodLabel = lbPeriod.startsWith("week-") 
+
+  const currentPeriodLabel = lbPeriod.startsWith("week-")
     ? weeks.find(w => w.value === lbPeriod)?.label?.split(" ")[1] ?? "this week"
     : periodLabels[lbPeriod] ?? "this week";
 
@@ -325,7 +380,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {profileLoading ? (
-              <Skeleton className="h-8 w-[200px]" />
+              <Skeleton className="h-8 w-50" />
             ) : (
               <MyProfileBanner myUsername={myUsername} setMyUsername={setMyUsername} />
             )}
@@ -345,15 +400,17 @@ export default function DashboardPage() {
             value={stats?.solvedToday ?? 0}
             icon={Flame}
             loading={statsLoading}
+            info="Unique problems solved by your network today."
           />
           <StatCard
             label="Solved this week"
             value={stats?.solvedThisWeek ?? 0}
             icon={TrendingUp}
             loading={statsLoading}
+            info="Unique problems solved by your network this week."
           />
           <StatCard
-            label="Top difficulty"
+            label="Most Attempted"
             value={stats?.topDifficulty ?? "—"}
             icon={Activity}
             loading={statsLoading}
@@ -376,7 +433,25 @@ export default function DashboardPage() {
                   <Activity className="h-4 w-4 text-primary" />
                   Activity Feed
                 </CardTitle>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 bg-muted/30 p-0.5 rounded-md">
+                    <Button
+                      variant={actView === "recent" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => setActView("recent")}
+                    >
+                      Recent
+                    </Button>
+                    <Button
+                      variant={actView === "grouped" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => setActView("grouped")}
+                    >
+                      Grouped
+                    </Button>
+                  </div>
                   <Tabs
                     value={actFilter}
                     onValueChange={(v) => setActFilter(v as "all" | "unsolved")}
@@ -391,12 +466,6 @@ export default function DashboardPage() {
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
-                  {myUsername && (
-                    <span className="text-[10px] font-normal text-muted-foreground flex items-center gap-1 max-sm:hidden">
-                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                      = solved
-                    </span>
-                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -426,16 +495,118 @@ export default function DashboardPage() {
                       </>
                     )}
                   </div>
+                ) : actView === "grouped" ? (
+                  <div className="divide-y divide-border max-h-130 overflow-y-auto">
+                    {/* Known Problems Section */}
+                    {groupedActivity.known.length > 0 && (
+                      <div className="bg-muted/10">
+                        <div className="px-5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/20 border-b border-border">
+                          Known Problems
+                        </div>
+                        <div className="divide-y divide-border">
+                          {groupedActivity.known.map((group) => (
+                            <div key={group.problemSlug} className="px-5 py-4 flex flex-col gap-3 hover:bg-muted/30 transition-colors">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex flex-col gap-1 min-w-0">
+                                  <a
+                                    href={`https://leetcode.com/problems/${group.problemSlug}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-semibold text-sm hover:text-primary transition-colors flex items-center gap-1.5"
+                                  >
+                                    {group.problemTitle}
+                                    <ExternalLink className="h-3 w-3 opacity-50" />
+                                  </a>
+                                  <div className="flex items-center gap-2">
+                                    <DifficultyBadge difficulty={group.difficulty} />
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Latest: {formatDistanceToNow(group.latestSolve, { addSuffix: true })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-muted-foreground mr-1">Solved by:</span>
+                                {group.solvers.map((s) => (
+                                  <Link
+                                    key={s.leetcodeUsername}
+                                    href={`/profiles/${s.leetcodeUsername}`}
+                                    className="flex items-center gap-1.5 bg-background border border-border px-2 py-1 rounded-full text-[10px] hover:border-primary/50 transition-colors"
+                                  >
+                                    {s.avatarUrl ? (
+                                      <img src={s.avatarUrl} className="h-3.5 w-3.5 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="h-3.5 w-3.5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold">
+                                        {s.leetcodeUsername[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                    {s.displayName || s.leetcodeUsername}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Private Solves Section */}
+                    {groupedActivity.private.length > 0 && (
+                      <div className="bg-muted/10 border-t border-border">
+                        <div className="px-5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/20 border-b border-border">
+                          Private Profile Solves
+                        </div>
+                        <div className="divide-y divide-border">
+                          {groupedActivity.private.map((group) => (
+                            <div key={group.problemSlug} className="px-5 py-4 flex flex-col gap-3 hover:bg-muted/30 transition-colors">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex flex-col gap-1 min-w-0">
+                                  <span className="font-semibold text-sm">
+                                    {group.problemTitle}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <DifficultyBadge difficulty={group.difficulty} />
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Latest: {formatDistanceToNow(group.latestSolve, { addSuffix: true })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-muted-foreground mr-1">Solved by:</span>
+                                {group.solvers.map((s) => (
+                                  <Link
+                                    key={s.leetcodeUsername}
+                                    href={`/profiles/${s.leetcodeUsername}`}
+                                    className="flex items-center gap-1.5 bg-background border border-border px-2 py-1 rounded-full text-[10px] hover:border-primary/50 transition-colors"
+                                  >
+                                    {s.avatarUrl ? (
+                                      <img src={s.avatarUrl} className="h-3.5 w-3.5 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="h-3.5 w-3.5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold">
+                                        {s.leetcodeUsername[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                    {s.displayName || s.leetcodeUsername}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="divide-y divide-border max-h-[520px] overflow-y-auto">
+                  <div className="divide-y divide-border max-h-130 overflow-y-auto">
                     {filteredActivity.map((item) => {
                       const solved = !!myUsername && mySolvedSlugs.has(item.problemSlug.toLowerCase());
                       return (
                         <div
                           key={item.id}
                           className={`px-5 py-3.5 flex gap-3 items-start transition-colors ${solved
-                              ? "bg-green-500/5 hover:bg-green-500/10"
-                              : "hover:bg-muted/30"
+                            ? "bg-green-500/5 hover:bg-green-500/10"
+                            : "hover:bg-muted/30"
                             }`}
                           data-testid={`activity-item-${item.id}`}
                         >
@@ -454,13 +625,13 @@ export default function DashboardPage() {
                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                               <Link
                                 href={`/profiles/${item.leetcodeUsername}`}
-                                className="font-semibold text-sm hover:text-primary transition-colors truncate max-w-[120px]"
+                                className="font-semibold text-sm hover:text-primary transition-colors truncate max-w-30"
                                 title={item.leetcodeUsername}
                               >
                                 {item.displayName || item.leetcodeUsername}
                               </Link>
                               <span className="text-sm text-muted-foreground">solved</span>
-                              {item.problemSlug.startsWith("unknown-") ? (
+                              {item.problemSlug.startsWith("private-") || item.problemSlug.startsWith("unknown-") ? (
                                 <span className="text-sm font-medium text-foreground">
                                   {item.problemTitle}
                                 </span>
@@ -476,7 +647,7 @@ export default function DashboardPage() {
                                   <ExternalLink className="h-3 w-3 opacity-50" />
                                 </a>
                               )}
-                              {item.submissionId && !item.submissionId.startsWith("unknown-") && (
+                              {item.submissionId && !item.submissionId.startsWith("private-") && !item.submissionId.startsWith("unknown-") && (
                                 <a
                                   href={`https://leetcode.com/problems/${item.problemSlug}/submissions/${item.submissionId}/`}
                                   target="_blank"
@@ -551,7 +722,7 @@ export default function DashboardPage() {
                 >
                   <TabsList className="h-7 p-0.5 bg-muted/50 w-full flex">
                     <TabsTrigger value="day" className="text-[10px] px-2 h-6 flex-1">Day</TabsTrigger>
-                    
+
                     {/* Replaced 'week' trigger with a custom selector */}
                     <div className={`flex-1 flex rounded-sm transition-all ${lbPeriod === "week" || lbPeriod.startsWith("week-") ? "bg-background text-foreground shadow-sm" : "hover:bg-background/50 text-muted-foreground"}`}>
                       <Select value={lbPeriod === "week" ? "week" : lbPeriod} onValueChange={setLbPeriod}>
@@ -628,28 +799,28 @@ export default function DashboardPage() {
                   }
 
                   return (
-                    <div className="divide-y divide-border max-h-[520px] overflow-y-auto">
+                    <div className="divide-y divide-border max-h-130 overflow-y-auto">
                       {merged.map((entry, idx) => {
                         const isMe = !!entry._isMe;
                         return (
                           <div
                             key={entry.leetcodeUsername}
                             className={`px-5 py-3 flex gap-3 items-center transition-colors ${isMe
-                                ? "bg-primary/5 ring-1 ring-inset ring-primary/20 hover:bg-primary/10"
-                                : "hover:bg-muted/30"
+                              ? "bg-primary/5 ring-1 ring-inset ring-primary/20 hover:bg-primary/10"
+                              : "hover:bg-muted/30"
                               }`}
                             data-testid={isMe ? "leaderboard-entry-self" : `leaderboard-entry-${entry.leetcodeUsername}`}
                           >
                             <div
                               className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${idx === 0
-                                  ? "bg-yellow-400/20 text-yellow-400"
-                                  : idx === 1
-                                    ? "bg-slate-400/20 text-slate-400"
-                                    : idx === 2
-                                      ? "bg-orange-700/20 text-orange-700"
-                                      : isMe
-                                        ? "bg-primary/10 text-primary"
-                                        : "bg-muted text-muted-foreground"
+                                ? "bg-yellow-400/20 text-yellow-400"
+                                : idx === 1
+                                  ? "bg-slate-400/20 text-slate-400"
+                                  : idx === 2
+                                    ? "bg-orange-700/20 text-orange-700"
+                                    : isMe
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground"
                                 }`}
                             >
                               {idx + 1}
@@ -659,15 +830,15 @@ export default function DashboardPage() {
                                 src={entry.avatarUrl}
                                 alt={entry.leetcodeUsername}
                                 className={`h-8 w-8 rounded-full object-cover ${isMe
-                                    ? "ring-2 ring-primary"
-                                    : "ring-1 ring-border"
+                                  ? "ring-2 ring-primary"
+                                  : "ring-1 ring-border"
                                   }`}
                               />
                             ) : (
                               <div
                                 className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm ${isMe
-                                    ? "bg-primary/20 text-primary ring-2 ring-primary"
-                                    : "bg-primary/10 text-primary"
+                                  ? "bg-primary/20 text-primary ring-2 ring-primary"
+                                  : "bg-primary/10 text-primary"
                                   }`}
                               >
                                 {entry.leetcodeUsername[0].toUpperCase()}

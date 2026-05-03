@@ -177,9 +177,9 @@ async function pollUser(username: string): Promise<void> {
         for (let i = 0; i < unknownToAdd; i++) {
           const ts = Math.floor(Date.now() / 1000);
           allNewSubmissions.push({
-            id: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
-            title: `Unknown ${difficulty} Problem`,
-            titleSlug: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
+            id: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
+            title: `Private ${difficulty} Problem`,
+            titleSlug: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
             timestamp: ts.toString(),
           });
         }
@@ -291,8 +291,8 @@ async function persistNewSubmissions(
     const chunkRows = await Promise.all(
       chunk.map(async (s) => {
         let difficulty: string;
-        if (s.titleSlug.startsWith("unknown-")) {
-          // Extract "Easy", "Medium", or "Hard" from "unknown-easy-..."
+        if (s.titleSlug.startsWith("private-")) {
+          // Extract "Easy", "Medium", or "Hard" from "private-easy-..."
           const part = s.titleSlug.split("-")[1];
           difficulty = part.charAt(0).toUpperCase() + part.slice(1);
         } else {
@@ -304,7 +304,7 @@ async function persistNewSubmissions(
           problemSlug: s.titleSlug,
           problemTitle: s.title,
           difficulty,
-          submissionId: s.id.startsWith("unknown-") ? null : s.id,
+          submissionId: s.id.startsWith("private-") ? null : s.id,
           solvedAt: new Date(Number(s.timestamp) * 1_000),
         };
       }),
@@ -400,9 +400,9 @@ export async function backfillUserProblems(username: string): Promise<void> {
         for (let i = 0; i < unknownToAdd; i++) {
           const ts = Math.floor(Date.now() / 1000);
           allSubmissions.push({
-            id: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
-            title: `Unknown ${difficulty} Problem`,
-            titleSlug: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
+            id: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
+            title: `Private ${difficulty} Problem`,
+            titleSlug: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
             timestamp: ts.toString(),
           });
         }

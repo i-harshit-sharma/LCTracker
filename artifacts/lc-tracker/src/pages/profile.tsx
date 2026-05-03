@@ -418,7 +418,7 @@ export default function ProfilePage() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-x-2">
-                            {problem.problemSlug.startsWith("unknown-") ? (
+                            {(problem.problemSlug.startsWith("private-") || problem.problemSlug.startsWith("unknown-")) ? (
                               <span className="text-sm font-medium">
                                 {problem.problemTitle}
                               </span>
@@ -434,7 +434,7 @@ export default function ProfilePage() {
                                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                               </a>
                             )}
-                            {problem.submissionId && !problem.submissionId.startsWith("unknown-") && (
+                            {problem.submissionId && !problem.submissionId.startsWith("private-") && !problem.submissionId.startsWith("unknown-") && (
                               <a
                                 href={`https://leetcode.com/problems/${problem.problemSlug}/submissions/${problem.submissionId}/`}
                                 target="_blank"
