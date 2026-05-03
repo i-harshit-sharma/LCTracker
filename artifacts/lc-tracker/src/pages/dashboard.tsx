@@ -161,14 +161,6 @@ function MyProfileBanner({
         >
           <Pencil className="h-3 w-3" />
         </button>
-        <button
-          onClick={clear}
-          className="text-muted-foreground hover:text-destructive transition-colors"
-          title="Clear"
-          data-testid="my-profile-clear-btn"
-        >
-          <X className="h-3 w-3" />
-        </button>
       </div>
     );
   }

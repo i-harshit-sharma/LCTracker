@@ -69,22 +69,21 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
 
   const { digestHour, digestMinute, emailEnabled, leetcodeUsername } = parsed.data;
 
-  // Build the patch — only update fields that were supplied
   const patch: any = { updatedAt: new Date() };
   if (digestHour   !== undefined) patch.digestHour   = digestHour;
   if (digestMinute !== undefined) patch.digestMinute = digestMinute;
   if (emailEnabled !== undefined) patch.emailEnabled = emailEnabled;
   if (leetcodeUsername !== undefined) {
-    const newUsername = leetcodeUsername ? leetcodeUsername.toLowerCase() : null;
+    const newUsername = leetcodeUsername ? leetcodeUsername.trim().toLowerCase() : null;
     
-    // If username is changing, reset verification status
     const [current] = await db
       .select({ leetcodeUsername: userPreferencesTable.leetcodeUsername })
       .from(userPreferencesTable)
       .where(eq(userPreferencesTable.userId, userId))
       .limit(1);
 
-    if (current && current.leetcodeUsername !== newUsername) {
+    // If username is changing OR being set for the first time
+    if (!current || current.leetcodeUsername !== newUsername) {
       patch.leetcodeUsername = newUsername;
       patch.isVerified = false;
       patch.verificationToken = newUsername ? generateVerificationToken() : null;
@@ -98,6 +97,9 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
       digestHour:   digestHour   ?? 20,
       digestMinute: digestMinute ?? 0,
       emailEnabled: emailEnabled ?? true,
+      leetcodeUsername: leetcodeUsername ? leetcodeUsername.trim().toLowerCase() : null,
+      isVerified: false,
+      verificationToken: leetcodeUsername ? generateVerificationToken() : null,
     })
     .onConflictDoUpdate({
       target: userPreferencesTable.userId,

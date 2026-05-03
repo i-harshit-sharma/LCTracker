@@ -25,7 +25,13 @@ export function useMyProfile() {
       };
     });
     
-    updatePrefs.mutate({ data: { leetcodeUsername: newUsername } as any });
+    updatePrefs.mutate({ 
+      data: { leetcodeUsername: newUsername } as any 
+    }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetPreferencesQueryKey() });
+      }
+    });
   }, [queryClient, updatePrefs]);
 
   return { myUsername, setMyUsername, isLoading };
