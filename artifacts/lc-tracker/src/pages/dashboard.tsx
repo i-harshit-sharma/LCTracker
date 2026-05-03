@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { ExternalLink, Trophy, Activity, TrendingUp, Users, Flame, CheckCircle2, User, X, Pencil, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -216,10 +216,21 @@ function MyProfileBanner({
 
 export default function DashboardPage() {
   const posthog = usePostHog();
-  const [lbScope, setLbScope] = useState<"following" | "global">("following");
-  const [lbPeriod, setLbPeriod] = useState<string>("week");
-  const [actFilter, setActFilter] = useState<"all" | "unsolved">("all");
-  const [actView, setActView] = useState<"recent" | "grouped">("recent");
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+
+  const searchParams = useMemo(() => new URLSearchParams(search), [search]);
+
+  const lbScope = (searchParams.get("scope") as "following" | "global") || "following";
+  const lbPeriod = searchParams.get("period") || "week";
+  const actFilter = (searchParams.get("filter") as "all" | "unsolved") || "all";
+  const actView = (searchParams.get("view") as "recent" | "grouped") || "recent";
+
+  const updateSearchParam = useCallback((name: string, value: string) => {
+    const params = new URLSearchParams(search);
+    params.set(name, value);
+    setLocation(`?${params.toString()}`, { replace: true });
+  }, [search, setLocation]);
   const weeks = generateWeeks();
   const { data: stats, isLoading: statsLoading } = useGetActivityStats();
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ scope: lbScope, period: lbPeriod as any });
@@ -445,7 +456,7 @@ export default function DashboardPage() {
                       size="sm"
                       className="h-6 px-2 text-[10px]"
                       onClick={() => {
-                        setActView("recent");
+                        updateSearchParam("view", "recent");
                         posthog?.capture("change_activity_view", { view: "recent" });
                       }}
                     >
@@ -456,7 +467,7 @@ export default function DashboardPage() {
                       size="sm"
                       className="h-6 px-2 text-[10px]"
                       onClick={() => {
-                        setActView("grouped");
+                        updateSearchParam("view", "grouped");
                         posthog?.capture("change_activity_view", { view: "grouped" });
                       }}
                     >
@@ -465,7 +476,7 @@ export default function DashboardPage() {
                   </div>
                   <Tabs
                     value={actFilter}
-                    onValueChange={(v) => setActFilter(v as "all" | "unsolved")}
+                    onValueChange={(v) => updateSearchParam("filter", v)}
                     className="w-auto"
                   >
                     <TabsList className="h-7 p-0.5 bg-muted/50">
@@ -737,7 +748,7 @@ export default function DashboardPage() {
                   </CardTitle>
                   <Tabs
                     value={lbScope}
-                    onValueChange={(v) => setLbScope(v as "following" | "global")}
+                    onValueChange={(v) => updateSearchParam("scope", v)}
                     className="w-auto"
                   >
                     <TabsList className="h-7 p-0.5 bg-muted/50">
@@ -752,7 +763,7 @@ export default function DashboardPage() {
                 </div>
                 <Tabs
                   value={lbPeriod.startsWith("week-") ? "week" : lbPeriod}
-                  onValueChange={setLbPeriod}
+                  onValueChange={(v) => updateSearchParam("period", v)}
                   className="w-full"
                 >
                   <TabsList className="h-7 p-0.5 bg-muted/50 w-full flex">
@@ -760,7 +771,7 @@ export default function DashboardPage() {
 
                     {/* Replaced 'week' trigger with a custom selector */}
                     <div className={`flex-1 flex rounded-sm transition-all ${lbPeriod === "week" || lbPeriod.startsWith("week-") ? "bg-background text-foreground shadow-sm" : "hover:bg-background/50 text-muted-foreground"}`}>
-                      <Select value={lbPeriod === "week" ? "week" : lbPeriod} onValueChange={setLbPeriod}>
+                      <Select value={lbPeriod === "week" ? "week" : lbPeriod} onValueChange={(v) => updateSearchParam("period", v)}>
                         <SelectTrigger className="h-6 w-full px-2 border-0 bg-transparent text-[10px] focus:ring-0 shadow-none font-medium flex justify-center text-center">
                           <SelectValue placeholder="Week" />
                         </SelectTrigger>
