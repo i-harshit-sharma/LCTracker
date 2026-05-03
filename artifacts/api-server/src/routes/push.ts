@@ -10,10 +10,11 @@ import { Router, type IRouter } from "express";
 import { db, pushSubscriptionsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
-  VapidPublicKeyResponse,
+  GetVapidPublicKeyResponse,
   SavePushSubscriptionBody,
   DeletePushSubscriptionBody,
-  PushSubscribeResponse,
+  SavePushSubscriptionResponse,
+  DeletePushSubscriptionResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { logger } from "../lib/logger";
@@ -29,7 +30,7 @@ router.get("/push/vapid-public-key", (req, res): void => {
     res.status(500).json({ error: "VAPID_PUBLIC_KEY not configured" });
     return;
   }
-  res.json(VapidPublicKeyResponse.parse({ publicKey }));
+  res.json(GetVapidPublicKeyResponse.parse({ publicKey }));
 });
 
 // ── POST /api/push/subscribe ──────────────────────────────────────────────────
@@ -55,7 +56,7 @@ router.post("/push/subscribe", requireAuth, async (req, res): Promise<void> => {
     });
 
   logger.info({ userId, endpoint }, "Push subscription saved");
-  res.json(PushSubscribeResponse.parse({ success: true }));
+  res.json(SavePushSubscriptionResponse.parse({ success: true }));
 });
 
 // ── DELETE /api/push/subscribe ────────────────────────────────────────────────
@@ -81,7 +82,7 @@ router.delete("/push/subscribe", requireAuth, async (req, res): Promise<void> =>
     );
 
   logger.info({ userId, endpoint }, "Push subscription removed");
-  res.json(PushSubscribeResponse.parse({ success: true }));
+  res.json(DeletePushSubscriptionResponse.parse({ success: true }));
 });
 
 // ── POST /api/push/mock ──────────────────────────────────────────────────────

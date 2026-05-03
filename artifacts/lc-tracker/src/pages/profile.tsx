@@ -417,16 +417,34 @@ export default function ProfilePage() {
                         data-testid={`problem-row-${problem.id}`}
                       >
                         <div className="flex-1 min-w-0">
-                          <a
-                            href={`https://leetcode.com/problems/${problem.problemSlug}/`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1 group"
-                            data-testid={`link-problem-${problem.id}`}
-                          >
-                            {problem.problemTitle}
-                            <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                          </a>
+                          <div className="flex flex-wrap items-center gap-x-2">
+                            {problem.problemSlug.startsWith("unknown-") ? (
+                              <span className="text-sm font-medium">
+                                {problem.problemTitle}
+                              </span>
+                            ) : (
+                              <a
+                                href={`https://leetcode.com/problems/${problem.problemSlug}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1 group"
+                                data-testid={`link-problem-${problem.id}`}
+                              >
+                                {problem.problemTitle}
+                                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                              </a>
+                            )}
+                            {problem.submissionId && !problem.submissionId.startsWith("unknown-") && (
+                              <a
+                                href={`https://leetcode.com/problems/${problem.problemSlug}/submissions/${problem.submissionId}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary/60 hover:text-primary hover:underline"
+                              >
+                                (Submission)
+                              </a>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {formatDistanceToNow(new Date(problem.solvedAt), {
                               addSuffix: true,

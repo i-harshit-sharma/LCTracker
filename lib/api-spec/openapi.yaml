@@ -18,6 +18,10 @@ tags:
     description: Activity feed for followed profiles
   - name: profiles
     description: LeetCode profile data
+  - name: preferences
+    description: User email digest preferences
+  - name: push
+    description: Push notification management
 
 paths:
   /healthz:
@@ -204,6 +208,18 @@ paths:
       operationId: getLeaderboard
       tags: [activity]
       summary: Followed users ranked by weekly solve count
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [following, global]
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           description: Leaderboard
@@ -213,6 +229,106 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
+        "401":
+          description: Unauthorized
+
+  /preferences:
+    get:
+      operationId: getPreferences
+      tags: [preferences]
+      summary: Get user email digest preferences
+      responses:
+        "200":
+          description: Preferences data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "401":
+          description: Unauthorized
+    put:
+      operationId: updatePreferences
+      tags: [preferences]
+      summary: Update user email digest preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePreferencesBody"
+      responses:
+        "200":
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "401":
+          description: Unauthorized
+
+  /push/vapid-public-key:
+    get:
+      operationId: getVapidPublicKey
+      tags: [push]
+      summary: Get VAPID public key for push notifications
+      responses:
+        "200":
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  publicKey:
+                    type: string
+                required: [publicKey]
+
+  /push/subscribe:
+    post:
+      operationId: savePushSubscription
+      tags: [push]
+      summary: Subscribe to push notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePushSubscriptionBody"
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushSubscribeResponse"
+        "401":
+          description: Unauthorized
+    delete:
+      operationId: deletePushSubscription
+      tags: [push]
+      summary: Unsubscribe from push notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeletePushSubscriptionBody"
+      responses:
+        "200":
+          description: Unsubscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushSubscribeResponse"
+
+  /push/mock:
+    post:
+      operationId: sendMockNotification
+      tags: [push]
+      summary: Send a mock push notification for testing
+      responses:
+        "200":
+          description: Mock notification sent
         "401":
           description: Unauthorized
 
@@ -236,6 +352,51 @@ paths:
                 $ref: "#/components/schemas/LeetcodeProfile"
         "404":
           description: Profile not found
+
+  /profiles/{username}/db-summary:
+    get:
+      operationId: getDbProfileSummary
+      tags: [profiles]
+      summary: DB-only profile summary
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DbProfileSummary"
+        "404":
+          description: Profile not found in DB
+
+  /profiles/{username}/save:
+    post:
+      operationId: saveProfileToDb
+      tags: [profiles]
+      summary: Fetch and save profile to DB (no follow)
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DbProfileSummary"
 
 components:
   schemas:
@@ -299,8 +460,12 @@ components:
           type: ["string", "null"]
         difficulty:
           type: ["string", "null"]
+        submissionId:
+          type: ["string", "null"]
         read:
           type: boolean
+        solvedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
       required:
@@ -327,6 +492,8 @@ components:
         solvedAt:
           type: string
         titleSlug:
+          type: ["string", "null"]
+        submissionId:
           type: ["string", "null"]
       required:
         - id
@@ -371,13 +538,13 @@ components:
           type: ["string", "null"]
         avatarUrl:
           type: ["string", "null"]
-        solvedThisWeek:
+        solvedInPeriod:
           type: integer
         totalSolved:
           type: ["integer", "null"]
       required:
         - leetcodeUsername
-        - solvedThisWeek
+        - solvedInPeriod
 
     LeetcodeFollowingEntry:
       type: object
@@ -420,3 +587,93 @@ components:
         - leetcodeUsername
         - recentProblems
         - following
+
+    DbProfileSummary:
+      type: object
+      properties:
+        leetcodeUsername:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        totalSolved:
+          type: ["integer", "null"]
+        solvedInPeriod:
+          type: integer
+        inDatabase:
+          type: boolean
+        recentSlugs:
+          type: array
+          items:
+            type: string
+      required:
+        - leetcodeUsername
+        - solvedInPeriod
+        - inDatabase
+
+    Preferences:
+      type: object
+      properties:
+        userId:
+          type: string
+        emailEnabled:
+          type: boolean
+        digestHour:
+          type: integer
+        digestMinute:
+          type: integer
+        lastDigestAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+        leetcodeUsername:
+          type: ["string", "null"]
+      required:
+        - userId
+        - emailEnabled
+        - digestHour
+        - digestMinute
+        - updatedAt
+
+    UpdatePreferencesBody:
+      type: object
+      properties:
+        emailEnabled:
+          type: boolean
+        digestHour:
+          type: integer
+        digestMinute:
+          type: integer
+        leetcodeUsername:
+          type: ["string", "null"]
+
+    SavePushSubscriptionBody:
+      type: object
+      properties:
+        endpoint:
+          type: string
+        p256dh:
+          type: string
+        auth:
+          type: string
+      required:
+        - endpoint
+        - p256dh
+        - auth
+
+    DeletePushSubscriptionBody:
+      type: object
+      properties:
+        endpoint:
+          type: string
+      required:
+        - endpoint
+
+    PushSubscribeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success

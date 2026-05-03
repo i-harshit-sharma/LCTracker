@@ -438,16 +438,33 @@ export default function DashboardPage() {
                                 {item.displayName || item.leetcodeUsername}
                               </Link>
                               <span className="text-sm text-muted-foreground">solved</span>
-                              <a
-                                href={`https://leetcode.com/problems/${item.problemSlug}/`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-0.5"
-                                data-testid={`link-problem-${item.id}`}
-                              >
-                                {item.problemTitle}
-                                <ExternalLink className="h-3 w-3 opacity-50" />
-                              </a>
+                              {item.problemSlug.startsWith("unknown-") ? (
+                                <span className="text-sm font-medium text-foreground">
+                                  {item.problemTitle}
+                                </span>
+                              ) : (
+                                <a
+                                  href={`https://leetcode.com/problems/${item.problemSlug}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-0.5"
+                                  data-testid={`link-problem-${item.id}`}
+                                >
+                                  {item.problemTitle}
+                                  <ExternalLink className="h-3 w-3 opacity-50" />
+                                </a>
+                              )}
+                              {item.submissionId && !item.submissionId.startsWith("unknown-") && (
+                                <a
+                                  href={`https://leetcode.com/problems/${item.problemSlug}/submissions/${item.submissionId}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-primary/70 hover:text-primary hover:underline ml-1"
+                                  data-testid={`link-submission-${item.id}`}
+                                >
+                                  (View Submission)
+                                </a>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               <DifficultyBadge difficulty={item.difficulty} />

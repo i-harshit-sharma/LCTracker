@@ -26,6 +26,7 @@ import {
   getProblemDifficulty,
   sleep,
   INTER_USER_DELAY_MS,
+  type LCSubmission,
 } from "./leetcode";
 import { logger } from "./logger";
 import { sendPushNotificationsForUser } from "./pushNotification";
@@ -83,10 +84,16 @@ export async function runPollCycle(): Promise<void> {
  *   - Upserts shared profile metadata into leetcode_profiles table
  */
 async function pollUser(username: string): Promise<void> {
-  const [submissions, profile, following] = await Promise.all([
+  const [submissions, profile, following, oldProfile] = await Promise.all([
     getRecentAcceptedSubmissions(username, 15),
     getLeetCodeProfile(username),
     getLeetCodeFollowing(username, 30),
+    db
+      .select()
+      .from(leetcodeProfilesTable)
+      .where(eq(leetcodeProfilesTable.username, username))
+      .limit(1)
+      .then((rows) => rows[0]),
   ]);
 
   // 2. Upsert shared profile cache in leetcode_profiles (one row per username)
@@ -138,18 +145,60 @@ async function pollUser(username: string): Promise<void> {
   const existingSlugs = new Set(existing.map((r) => r.problemSlug));
   const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
 
-  if (!newSubmissions.length) {
+  // Identify "Unknown" solves if profile counts increased more than the submissions we found
+  const allNewSubmissions = [...newSubmissions];
+  if (profile && oldProfile) {
+    const diffs = [
+      { key: "easySolved" as const, difficulty: "Easy" },
+      { key: "mediumSolved" as const, difficulty: "Medium" },
+      { key: "hardSolved" as const, difficulty: "Hard" },
+    ];
+
+    // Fetch difficulties for the new public submissions so we can compare counts
+    const newWithDiff = await Promise.all(
+      newSubmissions.map(async (s) => ({
+        ...s,
+        difficulty: await getProblemDifficulty(s.titleSlug),
+      })),
+    );
+
+    for (const { key, difficulty } of diffs) {
+      const newVal = profile[key] ?? 0;
+      const oldVal = oldProfile[key] ?? 0;
+      const delta = newVal - oldVal;
+      const foundCount = newWithDiff.filter((s) => s.difficulty === difficulty).length;
+
+      if (delta > foundCount) {
+        const unknownToAdd = delta - foundCount;
+        logger.info(
+          { username, difficulty, count: unknownToAdd },
+          "Detected unknown solves via profile count",
+        );
+        for (let i = 0; i < unknownToAdd; i++) {
+          const ts = Math.floor(Date.now() / 1000);
+          allNewSubmissions.push({
+            id: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
+            title: `Unknown ${difficulty} Problem`,
+            titleSlug: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
+            timestamp: ts.toString(),
+          });
+        }
+      }
+    }
+  }
+
+  if (!allNewSubmissions.length) {
     logger.debug({ username }, "No new solved problems detected");
     return;
   }
 
   logger.info(
-    { username, count: newSubmissions.length },
+    { username, count: allNewSubmissions.length },
     "New solved problems detected",
   );
 
   // 4. Persist new solved problems (shared helper used by backfill too)
-  const rows = await persistNewSubmissions(username, newSubmissions);
+  const rows = await persistNewSubmissions(username, allNewSubmissions);
 
   // 5. Filter for "recent" problems to notify about
   const now = Date.now();
@@ -182,6 +231,7 @@ async function pollUser(username: string): Promise<void> {
         problemTitle: row.problemTitle,
         problemSlug: row.problemSlug,
         difficulty: row.difficulty,
+        submissionId: row.submissionId,
         read: false,
         solvedAt: row.solvedAt,
       });
@@ -231,7 +281,7 @@ async function pollUser(username: string): Promise<void> {
  */
 async function persistNewSubmissions(
   username: string,
-  newSubmissions: { titleSlug: string; title: string; timestamp: string }[],
+  newSubmissions: LCSubmission[],
 ) {
   const CHUNK_SIZE = 10;
   const rows = [];
@@ -240,15 +290,24 @@ async function persistNewSubmissions(
     const chunk = newSubmissions.slice(i, i + CHUNK_SIZE);
     const chunkRows = await Promise.all(
       chunk.map(async (s) => {
-        const difficulty = await getProblemDifficulty(s.titleSlug);
+        let difficulty: string;
+        if (s.titleSlug.startsWith("unknown-")) {
+          // Extract "Easy", "Medium", or "Hard" from "unknown-easy-..."
+          const part = s.titleSlug.split("-")[1];
+          difficulty = part.charAt(0).toUpperCase() + part.slice(1);
+        } else {
+          difficulty = await getProblemDifficulty(s.titleSlug);
+        }
+
         return {
           leetcodeUsername: username,
           problemSlug: s.titleSlug,
           problemTitle: s.title,
           difficulty,
+          submissionId: s.id.startsWith("unknown-") ? null : s.id,
           solvedAt: new Date(Number(s.timestamp) * 1_000),
         };
-      })
+      }),
     );
     rows.push(...chunkRows);
   }
@@ -304,14 +363,64 @@ export async function backfillUserProblems(username: string): Promise<void> {
   const existingSlugs = new Set(existing.map((r) => r.problemSlug));
   const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
 
-  if (!newSubmissions.length) {
+  // Identify "Unknown" solves for backfill (if profile counts > found submissions)
+  const allSubmissions = [...newSubmissions];
+  if (profile) {
+    const diffs = [
+      { key: "easySolved" as const, difficulty: "Easy" },
+      { key: "mediumSolved" as const, difficulty: "Medium" },
+      { key: "hardSolved" as const, difficulty: "Hard" },
+    ];
+
+    // We need to know which problems we ALREADY have to accurately count the gap
+    const dbSolves = await db
+      .select({ difficulty: solvedProblemsTable.difficulty, slug: solvedProblemsTable.problemSlug })
+      .from(solvedProblemsTable)
+      .where(eq(solvedProblemsTable.leetcodeUsername, username));
+
+    const newWithDiff = await Promise.all(
+      newSubmissions.map(async (s) => ({
+        ...s,
+        difficulty: await getProblemDifficulty(s.titleSlug),
+      })),
+    );
+
+    for (const { key, difficulty } of diffs) {
+      const targetCount = profile[key] ?? 0;
+      const currentFoundCount =
+        dbSolves.filter((s) => s.difficulty === difficulty).length +
+        newWithDiff.filter((s) => s.difficulty === difficulty).length;
+
+      if (targetCount > currentFoundCount) {
+        const unknownToAdd = targetCount - currentFoundCount;
+        logger.info(
+          { username, difficulty, count: unknownToAdd },
+          "Adding unknown solves during backfill",
+        );
+        for (let i = 0; i < unknownToAdd; i++) {
+          const ts = Math.floor(Date.now() / 1000);
+          allSubmissions.push({
+            id: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
+            title: `Unknown ${difficulty} Problem`,
+            titleSlug: `unknown-${difficulty.toLowerCase()}-${ts}-${i}`,
+            timestamp: ts.toString(),
+          });
+        }
+      }
+    }
+  }
+
+  if (!allSubmissions.length) {
     logger.info({ username }, "All submissions already stored — backfill skipped");
     return;
   }
 
   // Step 3 — persist everything that is genuinely new
-  const rows = await persistNewSubmissions(username, newSubmissions);
-  logger.info({ username, stored: rows.length, total: submissions.length }, "Backfill complete");
+  const rows = await persistNewSubmissions(username, allSubmissions);
+  logger.info(
+    { username, stored: rows.length, total: submissions.length },
+    "Backfill complete",
+  );
 }
 
 /**

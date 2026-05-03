@@ -51,6 +51,7 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
       problemTitle: solvedProblemsTable.problemTitle,
       difficulty: solvedProblemsTable.difficulty,
       solvedAt: solvedProblemsTable.solvedAt,
+      submissionId: solvedProblemsTable.submissionId,
       avatarUrl: leetcodeProfilesTable.avatarUrl,
       displayName: leetcodeProfilesTable.displayName,
     })

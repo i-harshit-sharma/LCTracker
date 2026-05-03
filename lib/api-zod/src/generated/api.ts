@@ -59,9 +59,10 @@ export const ListNotificationsResponseItem = zod.object({
   problemTitle: zod.string().nullish(),
   problemSlug: zod.string().nullish(),
   difficulty: zod.string().nullish(),
+  submissionId: zod.string().nullish(),
   read: zod.boolean(),
-  createdAt: zod.string(),
   solvedAt: zod.string().nullish(),
+  createdAt: zod.string(),
 });
 export const ListNotificationsResponse = zod.array(
   ListNotificationsResponseItem,
@@ -90,9 +91,10 @@ export const MarkNotificationReadResponse = zod.object({
   problemTitle: zod.string().nullish(),
   problemSlug: zod.string().nullish(),
   difficulty: zod.string().nullish(),
+  submissionId: zod.string().nullish(),
   read: zod.boolean(),
-  createdAt: zod.string(),
   solvedAt: zod.string().nullish(),
+  createdAt: zod.string(),
 });
 
 /**
@@ -103,17 +105,23 @@ export const ListActivityQueryParams = zod.object({
   myUsername: zod.coerce.string().optional(),
 });
 
-export const ListActivityResponseItem = zod.object({
-  id: zod.number(),
-  leetcodeUsername: zod.string(),
-  problemSlug: zod.string(),
-  problemTitle: zod.string(),
-  difficulty: zod.string(),
-  solvedAt: zod.string(),
-  titleSlug: zod.string().nullish(),
-  avatarUrl: zod.string().nullish(),
-  displayName: zod.string().nullish(),
-});
+export const ListActivityResponseItem = zod
+  .object({
+    id: zod.number(),
+    leetcodeUsername: zod.string(),
+    problemSlug: zod.string(),
+    problemTitle: zod.string(),
+    difficulty: zod.string(),
+    solvedAt: zod.string(),
+    titleSlug: zod.string().nullish(),
+    submissionId: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      avatarUrl: zod.string().nullish(),
+      displayName: zod.string().nullish(),
+    }),
+  );
 export const ListActivityResponse = zod.array(ListActivityResponseItem);
 
 /**
@@ -126,9 +134,12 @@ export const GetActivityStatsResponse = zod.object({
   mostActiveUser: zod.string().nullish(),
 });
 
+/**
+ * @summary Followed users ranked by weekly solve count
+ */
 export const GetLeaderboardQueryParams = zod.object({
   scope: zod.enum(["following", "global"]).optional(),
-  period: zod.string().optional(),
+  period: zod.coerce.string().optional(),
 });
 
 export const GetLeaderboardResponseItem = zod.object({
@@ -139,6 +150,70 @@ export const GetLeaderboardResponseItem = zod.object({
   totalSolved: zod.number().nullish(),
 });
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);
+
+/**
+ * @summary Get user email digest preferences
+ */
+export const GetPreferencesResponse = zod.object({
+  userId: zod.string(),
+  emailEnabled: zod.boolean(),
+  digestHour: zod.number(),
+  digestMinute: zod.number(),
+  lastDigestAt: zod.string().nullish(),
+  updatedAt: zod.string(),
+  leetcodeUsername: zod.string().nullish(),
+});
+
+/**
+ * @summary Update user email digest preferences
+ */
+export const UpdatePreferencesBody = zod.object({
+  emailEnabled: zod.boolean().optional(),
+  digestHour: zod.number().optional(),
+  digestMinute: zod.number().optional(),
+  leetcodeUsername: zod.string().nullish(),
+});
+
+export const UpdatePreferencesResponse = zod.object({
+  userId: zod.string(),
+  emailEnabled: zod.boolean(),
+  digestHour: zod.number(),
+  digestMinute: zod.number(),
+  lastDigestAt: zod.string().nullish(),
+  updatedAt: zod.string(),
+  leetcodeUsername: zod.string().nullish(),
+});
+
+/**
+ * @summary Get VAPID public key for push notifications
+ */
+export const GetVapidPublicKeyResponse = zod.object({
+  publicKey: zod.string(),
+});
+
+/**
+ * @summary Subscribe to push notifications
+ */
+export const SavePushSubscriptionBody = zod.object({
+  endpoint: zod.string(),
+  p256dh: zod.string(),
+  auth: zod.string(),
+});
+
+export const SavePushSubscriptionResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Unsubscribe from push notifications
+ */
+export const DeletePushSubscriptionBody = zod.object({
+  endpoint: zod.string(),
+});
+
+export const DeletePushSubscriptionResponse = zod.object({
+  success: zod.boolean(),
+});
 
 /**
  * @summary Get a LeetCode profile with recent solved problems and following list
@@ -164,6 +239,7 @@ export const GetLeetcodeProfileResponse = zod.object({
       difficulty: zod.string(),
       solvedAt: zod.string(),
       titleSlug: zod.string().nullish(),
+      submissionId: zod.string().nullish(),
     }),
   ),
   following: zod.array(
@@ -176,49 +252,14 @@ export const GetLeetcodeProfileResponse = zod.object({
 });
 
 /**
- * @summary Get/update the current user's digest email preferences
- */
-export const GetPreferencesResponse = zod.object({
-  digestHour:   zod.number().int().min(0).max(23),
-  digestMinute: zod.number().int().min(0).max(59),
-  emailEnabled: zod.boolean(),
-  leetcodeUsername: zod.string().nullish(),
-});
-
-export const UpdatePreferencesBody = zod.object({
-  digestHour:   zod.number().int().min(0).max(23).optional(),
-  digestMinute: zod.number().int().min(0).max(59).optional(),
-  emailEnabled: zod.boolean().optional(),
-  leetcodeUsername: zod.string().nullish(),
-});
-
-/**
- * @summary Push notification subscription management
- */
-export const VapidPublicKeyResponse = zod.object({
-  publicKey: zod.string(),
-});
-
-export const SavePushSubscriptionBody = zod.object({
-  endpoint: zod.string().url(),
-  p256dh: zod.string().min(1),
-  auth: zod.string().min(1),
-});
-
-export const DeletePushSubscriptionBody = zod.object({
-  endpoint: zod.string().url(),
-});
-
-export const PushSubscribeResponse = zod.object({
-  success: zod.boolean(),
-});
-
-/**
- * @summary DB-only profile summary (no live LC API, no inserts)
+ * @summary DB-only profile summary
  */
 export const GetDbProfileSummaryParams = zod.object({
   username: zod.coerce.string(),
-  period: zod.string().optional(),
+});
+
+export const GetDbProfileSummaryQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
 });
 
 export const GetDbProfileSummaryResponse = zod.object({
@@ -226,9 +267,24 @@ export const GetDbProfileSummaryResponse = zod.object({
   displayName: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
   totalSolved: zod.number().nullish(),
-  /** Problems solved within the requested period */
   solvedInPeriod: zod.number(),
   inDatabase: zod.boolean(),
-  /** Recent solved problem slugs (up to 100) for "solved" tick logic */
+  recentSlugs: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Fetch and save profile to DB (no follow)
+ */
+export const SaveProfileToDbParams = zod.object({
+  username: zod.coerce.string(),
+});
+
+export const SaveProfileToDbResponse = zod.object({
+  leetcodeUsername: zod.string(),
+  displayName: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  totalSolved: zod.number().nullish(),
+  solvedInPeriod: zod.number(),
+  inDatabase: zod.boolean(),
   recentSlugs: zod.array(zod.string()).optional(),
 });

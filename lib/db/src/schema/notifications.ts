@@ -22,6 +22,8 @@ export const notificationsTable = pgTable("notifications", {
   problemSlug: text("problem_slug"),
   /** Difficulty: Easy | Medium | Hard */
   difficulty: text("difficulty"),
+  /** LeetCode submission ID */
+  submissionId: text("submission_id"),
   /** Whether the user has read this notification */
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

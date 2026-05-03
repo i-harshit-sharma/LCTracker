@@ -544,16 +544,29 @@ export default function NotificationsPage() {
                           <DifficultyBadge difficulty={notif.difficulty} />
                         )}
                         {notif.problemSlug && (
-                          <a
-                            href={`https://leetcode.com/problems/${notif.problemSlug}/`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            data-testid={`link-notif-problem-${notif.id}`}
-                          >
-                            View problem
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`https://leetcode.com/problems/${notif.problemSlug}/`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              data-testid={`link-notif-problem-${notif.id}`}
+                            >
+                              View problem
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                            {notif.submissionId && (
+                              <a
+                                href={`https://leetcode.com/problems/${notif.problemSlug}/submissions/${notif.submissionId}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary/60 hover:text-primary hover:underline"
+                              >
+                                View submission
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            )}
+                          </div>
                         )}
                         <span className="text-xs text-muted-foreground">
                           {(() => {

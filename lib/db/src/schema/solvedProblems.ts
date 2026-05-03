@@ -21,6 +21,8 @@ export const solvedProblemsTable = pgTable(
     difficulty: text("difficulty").notNull().default("Unknown"),
     /** When LeetCode says it was solved (from submission timestamp) */
     solvedAt: timestamp("solved_at", { withTimezone: true }).notNull(),
+    /** LeetCode submission ID */
+    submissionId: text("submission_id"),
     /** When our system recorded it */
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

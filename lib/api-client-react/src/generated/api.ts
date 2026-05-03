@@ -21,17 +21,22 @@ import type {
   ActivityStats,
   CreateFollowBody,
   DbProfileSummary,
+  DeletePushSubscriptionBody,
   Follow,
   GetDbProfileSummaryParams,
+  GetLeaderboardParams,
+  GetVapidPublicKey200,
   HealthStatus,
   LeaderboardEntry,
   LeetcodeProfile,
   ListActivityParams,
-  GetLeaderboardParams,
   ListNotificationsParams,
   MarkAllNotificationsRead200,
   Notification,
-  SolvedProblem,
+  Preferences,
+  PushSubscribeResponse,
+  SavePushSubscriptionBody,
+  UpdatePreferencesBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -844,8 +849,7 @@ export const getGetLeaderboardQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetLeaderboardQueryKey(params);
+  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({
     signal,
@@ -889,6 +893,497 @@ export function useGetLeaderboard<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get user email digest preferences
+ */
+export const getGetPreferencesUrl = () => {
+  return `/api/preferences`;
+};
+
+export const getPreferences = async (
+  options?: RequestInit,
+): Promise<Preferences> => {
+  return customFetch<Preferences>(getGetPreferencesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPreferencesQueryKey = () => {
+  return [`/api/preferences`] as const;
+};
+
+export const getGetPreferencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPreferences>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPreferences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPreferencesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPreferences>>> = ({
+    signal,
+  }) => getPreferences({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPreferences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPreferencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPreferences>>
+>;
+export type GetPreferencesQueryError = ErrorType<void>;
+
+/**
+ * @summary Get user email digest preferences
+ */
+
+export function useGetPreferences<
+  TData = Awaited<ReturnType<typeof getPreferences>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPreferences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPreferencesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update user email digest preferences
+ */
+export const getUpdatePreferencesUrl = () => {
+  return `/api/preferences`;
+};
+
+export const updatePreferences = async (
+  updatePreferencesBody: UpdatePreferencesBody,
+  options?: RequestInit,
+): Promise<Preferences> => {
+  return customFetch<Preferences>(getUpdatePreferencesUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePreferencesBody),
+  });
+};
+
+export const getUpdatePreferencesMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePreferences>>,
+    TError,
+    { data: BodyType<UpdatePreferencesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePreferences>>,
+  TError,
+  { data: BodyType<UpdatePreferencesBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePreferences"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePreferences>>,
+    { data: BodyType<UpdatePreferencesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updatePreferences(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePreferencesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePreferences>>
+>;
+export type UpdatePreferencesMutationBody = BodyType<UpdatePreferencesBody>;
+export type UpdatePreferencesMutationError = ErrorType<void>;
+
+/**
+ * @summary Update user email digest preferences
+ */
+export const useUpdatePreferences = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePreferences>>,
+    TError,
+    { data: BodyType<UpdatePreferencesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePreferences>>,
+  TError,
+  { data: BodyType<UpdatePreferencesBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePreferencesMutationOptions(options));
+};
+
+/**
+ * @summary Get VAPID public key for push notifications
+ */
+export const getGetVapidPublicKeyUrl = () => {
+  return `/api/push/vapid-public-key`;
+};
+
+export const getVapidPublicKey = async (
+  options?: RequestInit,
+): Promise<GetVapidPublicKey200> => {
+  return customFetch<GetVapidPublicKey200>(getGetVapidPublicKeyUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetVapidPublicKeyQueryKey = () => {
+  return [`/api/push/vapid-public-key`] as const;
+};
+
+export const getGetVapidPublicKeyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVapidPublicKey>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getVapidPublicKey>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetVapidPublicKeyQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVapidPublicKey>>
+  > = ({ signal }) => getVapidPublicKey({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVapidPublicKey>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVapidPublicKeyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVapidPublicKey>>
+>;
+export type GetVapidPublicKeyQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get VAPID public key for push notifications
+ */
+
+export function useGetVapidPublicKey<
+  TData = Awaited<ReturnType<typeof getVapidPublicKey>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getVapidPublicKey>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVapidPublicKeyQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Subscribe to push notifications
+ */
+export const getSavePushSubscriptionUrl = () => {
+  return `/api/push/subscribe`;
+};
+
+export const savePushSubscription = async (
+  savePushSubscriptionBody: SavePushSubscriptionBody,
+  options?: RequestInit,
+): Promise<PushSubscribeResponse> => {
+  return customFetch<PushSubscribeResponse>(getSavePushSubscriptionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(savePushSubscriptionBody),
+  });
+};
+
+export const getSavePushSubscriptionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof savePushSubscription>>,
+    TError,
+    { data: BodyType<SavePushSubscriptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof savePushSubscription>>,
+  TError,
+  { data: BodyType<SavePushSubscriptionBody> },
+  TContext
+> => {
+  const mutationKey = ["savePushSubscription"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof savePushSubscription>>,
+    { data: BodyType<SavePushSubscriptionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return savePushSubscription(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SavePushSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePushSubscription>>
+>;
+export type SavePushSubscriptionMutationBody =
+  BodyType<SavePushSubscriptionBody>;
+export type SavePushSubscriptionMutationError = ErrorType<void>;
+
+/**
+ * @summary Subscribe to push notifications
+ */
+export const useSavePushSubscription = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof savePushSubscription>>,
+    TError,
+    { data: BodyType<SavePushSubscriptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof savePushSubscription>>,
+  TError,
+  { data: BodyType<SavePushSubscriptionBody> },
+  TContext
+> => {
+  return useMutation(getSavePushSubscriptionMutationOptions(options));
+};
+
+/**
+ * @summary Unsubscribe from push notifications
+ */
+export const getDeletePushSubscriptionUrl = () => {
+  return `/api/push/subscribe`;
+};
+
+export const deletePushSubscription = async (
+  deletePushSubscriptionBody: DeletePushSubscriptionBody,
+  options?: RequestInit,
+): Promise<PushSubscribeResponse> => {
+  return customFetch<PushSubscribeResponse>(getDeletePushSubscriptionUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(deletePushSubscriptionBody),
+  });
+};
+
+export const getDeletePushSubscriptionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePushSubscription>>,
+    TError,
+    { data: BodyType<DeletePushSubscriptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePushSubscription>>,
+  TError,
+  { data: BodyType<DeletePushSubscriptionBody> },
+  TContext
+> => {
+  const mutationKey = ["deletePushSubscription"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePushSubscription>>,
+    { data: BodyType<DeletePushSubscriptionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return deletePushSubscription(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePushSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePushSubscription>>
+>;
+export type DeletePushSubscriptionMutationBody =
+  BodyType<DeletePushSubscriptionBody>;
+export type DeletePushSubscriptionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unsubscribe from push notifications
+ */
+export const useDeletePushSubscription = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePushSubscription>>,
+    TError,
+    { data: BodyType<DeletePushSubscriptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePushSubscription>>,
+  TError,
+  { data: BodyType<DeletePushSubscriptionBody> },
+  TContext
+> => {
+  return useMutation(getDeletePushSubscriptionMutationOptions(options));
+};
+
+/**
+ * @summary Send a mock push notification for testing
+ */
+export const getSendMockNotificationUrl = () => {
+  return `/api/push/mock`;
+};
+
+export const sendMockNotification = async (
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getSendMockNotificationUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendMockNotificationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMockNotification>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendMockNotification>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["sendMockNotification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendMockNotification>>,
+    void
+  > = () => {
+    return sendMockNotification(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendMockNotificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendMockNotification>>
+>;
+
+export type SendMockNotificationMutationError = ErrorType<void>;
+
+/**
+ * @summary Send a mock push notification for testing
+ */
+export const useSendMockNotification = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMockNotification>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendMockNotification>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSendMockNotificationMutationOptions(options));
+};
 
 /**
  * @summary Get a LeetCode profile with recent solved problems and following list
@@ -979,165 +1474,23 @@ export function useGetLeetcodeProfile<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-// ---------------------------------------------------------------------------
-// Preferences — GET /api/preferences, PUT /api/preferences
-// ---------------------------------------------------------------------------
-
-import type { UserPreferences, UpdatePreferencesBody } from "./api.schemas";
-
 /**
- * @summary Get current user's digest email preferences
- */
-export const getGetPreferencesUrl = () => `/api/preferences`;
-
-export const getPreferences = async (
-  options?: RequestInit,
-): Promise<UserPreferences> =>
-  customFetch<UserPreferences>(getGetPreferencesUrl(), {
-    ...options,
-    method: "GET",
-  });
-
-export const getGetPreferencesQueryKey = () =>
-  [`/api/preferences`] as const;
-
-export const getGetPreferencesQueryOptions = <
-  TData = Awaited<ReturnType<typeof getPreferences>>,
-  TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getPreferences>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getGetPreferencesQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPreferences>>> = ({
-    signal,
-  }) => getPreferences({ signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getPreferences>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetPreferencesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getPreferences>>
->;
-export type GetPreferencesQueryError = ErrorType<void>;
-
-export function useGetPreferences<
-  TData = Awaited<ReturnType<typeof getPreferences>>,
-  TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getPreferences>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetPreferencesQueryOptions(options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Update current user's digest email preferences
- */
-export const getUpdatePreferencesUrl = () => `/api/preferences`;
-
-export const updatePreferences = async (
-  updatePreferencesBody: UpdatePreferencesBody,
-  options?: RequestInit,
-): Promise<UserPreferences> =>
-  customFetch<UserPreferences>(getUpdatePreferencesUrl(), {
-    ...options,
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(updatePreferencesBody),
-  });
-
-export const getUpdatePreferencesMutationOptions = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updatePreferences>>,
-    TError,
-    { data: BodyType<UpdatePreferencesBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof updatePreferences>>,
-  TError,
-  { data: BodyType<UpdatePreferencesBody> },
-  TContext
-> => {
-  const mutationKey = ["updatePreferences"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updatePreferences>>,
-    { data: BodyType<UpdatePreferencesBody> }
-  > = (props) => {
-    const { data } = props ?? {};
-    return updatePreferences(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UpdatePreferencesMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updatePreferences>>
->;
-export type UpdatePreferencesMutationBody = BodyType<UpdatePreferencesBody>;
-export type UpdatePreferencesMutationError = ErrorType<void>;
-
-export const useUpdatePreferences = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updatePreferences>>,
-    TError,
-    { data: BodyType<UpdatePreferencesBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof updatePreferences>>,
-  TError,
-  { data: BodyType<UpdatePreferencesBody> },
-  TContext
-> => useMutation(getUpdatePreferencesMutationOptions(options));
-
-/**
- * @summary DB-only profile summary — no live LeetCode fetch, no inserts
+ * @summary DB-only profile summary
  */
 export const getGetDbProfileSummaryUrl = (
   username: string,
   params?: GetDbProfileSummaryParams,
 ) => {
   const normalizedParams = new URLSearchParams();
+
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? "null" : value.toString());
     }
   });
+
   const stringifiedParams = normalizedParams.toString();
+
   return stringifiedParams.length > 0
     ? `/api/profiles/${username}/db-summary?${stringifiedParams}`
     : `/api/profiles/${username}/db-summary`;
@@ -1150,7 +1503,10 @@ export const getDbProfileSummary = async (
 ): Promise<DbProfileSummary> => {
   return customFetch<DbProfileSummary>(
     getGetDbProfileSummaryUrl(username, params),
-    { ...options, method: "GET" },
+    {
+      ...options,
+      method: "GET",
+    },
   );
 };
 
@@ -1180,13 +1536,21 @@ export const getGetDbProfileSummaryQueryOptions = <
   },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
+
   const queryKey =
     queryOptions?.queryKey ?? getGetDbProfileSummaryQueryKey(username, params);
+
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getDbProfileSummary>>
   > = ({ signal }) =>
     getDbProfileSummary(username, params, { signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!username,
+    ...queryOptions,
+  } as UseQueryOptions<
     Awaited<ReturnType<typeof getDbProfileSummary>>,
     TError,
     TData
@@ -1199,8 +1563,9 @@ export type GetDbProfileSummaryQueryResult = NonNullable<
 export type GetDbProfileSummaryQueryError = ErrorType<void>;
 
 /**
- * @summary DB-only profile summary — no live LeetCode fetch, no inserts
+ * @summary DB-only profile summary
  */
+
 export function useGetDbProfileSummary<
   TData = Awaited<ReturnType<typeof getDbProfileSummary>>,
   TError = ErrorType<void>,
@@ -1221,35 +1586,33 @@ export function useGetDbProfileSummary<
     params,
     options,
   );
+
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
   };
+
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-// ---------------------------------------------------------------------------
-// Save profile to DB — POST /api/profiles/:username/save
-// ---------------------------------------------------------------------------
-
 /**
- * @summary Seed a LeetCode profile into the DB without creating a follow row.
- * Useful for the viewer to have their "You" row on the leaderboard without
- * joining the global polling pool.
+ * @summary Fetch and save profile to DB (no follow)
  */
-export const getSaveProfileToDbUrl = (username: string) =>
-  `/api/profiles/${username}/save`;
+export const getSaveProfileToDbUrl = (username: string) => {
+  return `/api/profiles/${username}/save`;
+};
 
 export const saveProfileToDb = async (
   username: string,
   options?: RequestInit,
-): Promise<DbProfileSummary> =>
-  customFetch<DbProfileSummary>(getSaveProfileToDbUrl(username), {
+): Promise<DbProfileSummary> => {
+  return customFetch<DbProfileSummary>(getSaveProfileToDbUrl(username), {
     ...options,
     method: "POST",
   });
+};
 
 export const getSaveProfileToDbMutationOptions = <
-  TError = ErrorType<void>,
+  TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1279,6 +1642,7 @@ export const getSaveProfileToDbMutationOptions = <
     { username: string }
   > = (props) => {
     const { username } = props ?? {};
+
     return saveProfileToDb(username, requestOptions);
   };
 
@@ -1288,13 +1652,14 @@ export const getSaveProfileToDbMutationOptions = <
 export type SaveProfileToDbMutationResult = NonNullable<
   Awaited<ReturnType<typeof saveProfileToDb>>
 >;
-export type SaveProfileToDbMutationError = ErrorType<void>;
+
+export type SaveProfileToDbMutationError = ErrorType<unknown>;
 
 /**
- * @summary Save LeetCode profile to DB (no follow created)
+ * @summary Fetch and save profile to DB (no follow)
  */
 export const useSaveProfileToDb = <
-  TError = ErrorType<void>,
+  TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1309,4 +1674,6 @@ export const useSaveProfileToDb = <
   TError,
   { username: string },
   TContext
-> => useMutation(getSaveProfileToDbMutationOptions(options));
+> => {
+  return useMutation(getSaveProfileToDbMutationOptions(options));
+};

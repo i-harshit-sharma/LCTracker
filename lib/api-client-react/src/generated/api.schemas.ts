@@ -41,10 +41,12 @@ export interface Notification {
   problemSlug?: string | null;
   /** @nullable */
   difficulty?: string | null;
+  /** @nullable */
+  submissionId?: string | null;
   read: boolean;
-  createdAt: string;
   /** @nullable */
   solvedAt?: string | null;
+  createdAt: string;
 }
 
 export interface SolvedProblem {
@@ -56,6 +58,8 @@ export interface SolvedProblem {
   solvedAt: string;
   /** @nullable */
   titleSlug?: string | null;
+  /** @nullable */
+  submissionId?: string | null;
 }
 
 export type ActivityFeedItem = SolvedProblem & {
@@ -110,6 +114,53 @@ export interface LeetcodeProfile {
   following: LeetcodeFollowingEntry[];
 }
 
+export interface DbProfileSummary {
+  leetcodeUsername: string;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
+  /** @nullable */
+  totalSolved?: number | null;
+  solvedInPeriod: number;
+  inDatabase: boolean;
+  recentSlugs?: string[];
+}
+
+export interface Preferences {
+  userId: string;
+  emailEnabled: boolean;
+  digestHour: number;
+  digestMinute: number;
+  /** @nullable */
+  lastDigestAt?: string | null;
+  updatedAt: string;
+  /** @nullable */
+  leetcodeUsername?: string | null;
+}
+
+export interface UpdatePreferencesBody {
+  emailEnabled?: boolean;
+  digestHour?: number;
+  digestMinute?: number;
+  /** @nullable */
+  leetcodeUsername?: string | null;
+}
+
+export interface SavePushSubscriptionBody {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+export interface DeletePushSubscriptionBody {
+  endpoint: string;
+}
+
+export interface PushSubscribeResponse {
+  success: boolean;
+}
+
 export type ListNotificationsParams = {
   unreadOnly?: boolean;
 };
@@ -124,40 +175,22 @@ export type ListActivityParams = {
 };
 
 export type GetLeaderboardParams = {
-  scope?: "following" | "global";
+  scope?: GetLeaderboardScope;
   period?: string;
 };
 
-export interface UserPreferences {
-  digestHour: number;
-  digestMinute: number;
-  emailEnabled: boolean;
-  /** @nullable */
-  leetcodeUsername?: string | null;
-}
+export type GetLeaderboardScope =
+  (typeof GetLeaderboardScope)[keyof typeof GetLeaderboardScope];
 
-export interface UpdatePreferencesBody {
-  digestHour?: number;
-  digestMinute?: number;
-  emailEnabled?: boolean;
-  /** @nullable */
-  leetcodeUsername?: string | null;
-}
+export const GetLeaderboardScope = {
+  following: "following",
+  global: "global",
+} as const;
+
+export type GetVapidPublicKey200 = {
+  publicKey: string;
+};
 
 export type GetDbProfileSummaryParams = {
   period?: string;
 };
-
-export interface DbProfileSummary {
-  leetcodeUsername: string;
-  /** @nullable */
-  displayName?: string | null;
-  /** @nullable */
-  avatarUrl?: string | null;
-  /** @nullable */
-  totalSolved?: number | null;
-  solvedInPeriod: number;
-  inDatabase: boolean;
-  /** Recent solved problem slugs (up to 100) for solved-tick logic */
-  recentSlugs?: string[];
-}
