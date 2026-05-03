@@ -521,9 +521,11 @@ async function runGlobalScanner(): Promise<void> {
   const csrfToken = process.env.LEETCODE_CSRF_TOKEN;
 
   if (!sessionToken || !csrfToken) {
-    logger.debug("Scanner skipped: LEETCODE_SESSION or LEETCODE_CSRF_TOKEN missing");
+    logger.info("Scanner skipped: LEETCODE_SESSION or LEETCODE_CSRF_TOKEN missing in .env");
     return;
   }
+
+  logger.info("Scanner: Starting global brute-force scan");
 
   try {
     // 1. Get last scanned ID from DB
@@ -546,7 +548,8 @@ async function runGlobalScanner(): Promise<void> {
       return;
     }
 
-    logger.info({ from: lastId, to: currentMaxId }, "Scanner: Starting scan range");
+    const diffTotal = currentMaxId - lastId;
+    logger.info({ lastId, currentMaxId, totalToScan: diffTotal }, "Scanner: Starting scan range");
 
     // 3. Gather every unique LeetCode username that anyone is following
     const followRows = await db
@@ -554,19 +557,30 @@ async function runGlobalScanner(): Promise<void> {
       .from(followsTable);
     const trackedUsernames = new Set(followRows.map((r) => r.leetcodeUsername.toLowerCase()));
 
-    if (trackedUsernames.size === 0) return;
+    if (trackedUsernames.size === 0) {
+      logger.info("Scanner: No users are being followed — skipping scan");
+      return;
+    }
 
     // 4. Scan IDs in chunks
     const MAX_IDS_PER_CYCLE = 3000;
     let processedCount = 0;
 
     for (let id = lastId + 1; id <= currentMaxId && processedCount < MAX_IDS_PER_CYCLE; id++) {
+      if (processedCount % 100 === 0) {
+        const remaining = currentMaxId - id;
+        logger.info(
+          { id, processed: processedCount, remaining, progress: `${((processedCount / diffTotal) * 100).toFixed(1)}%` },
+          "Scanner: Progress check",
+        );
+      }
+
       try {
         const details = await getSubmissionDetails(id);
         if (details && details.statusCode === 10) {
           const username = details.user.username.toLowerCase();
           if (trackedUsernames.has(username)) {
-            logger.info({ id, username, problem: details.question.titleSlug }, "Scanner found a solve!");
+            logger.info({ id, username, problem: details.question.titleSlug }, "Scanner: MATCH FOUND!");
             await handleScannerFoundSolve(details.user.username, {
               id: id.toString(),
               title: details.question.title,
@@ -576,6 +590,7 @@ async function runGlobalScanner(): Promise<void> {
           }
         }
       } catch (err) {
+
         if (err instanceof LeetCodeAuthError) {
           posthog.capture({
             distinctId: "api-server",
@@ -592,6 +607,7 @@ async function runGlobalScanner(): Promise<void> {
       // Batch progress update
       if (processedCount % 50 === 0) {
         await updateLastScannedId(id);
+        logger.info({ id }, "Scanner: Progress saved to database");
       }
 
       // Speed control: fast catch-up if far behind
@@ -682,6 +698,7 @@ export function startPoller(): void {
   logger.info({ intervalMs: POLL_INTERVAL_MS }, "LeetCode poller started");
 
   const tick = async () => {
+    logger.info("Poller: Tick starting...");
     await runPollCycle();
     // Schedule the next tick after the cycle completes (not on a fixed clock)
     pollerTimer = setTimeout(tick, POLL_INTERVAL_MS);
