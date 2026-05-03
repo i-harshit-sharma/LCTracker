@@ -22,6 +22,8 @@
     "node-cron": "^4.2.1",
     "pino": "^9",
     "pino-http": "^10",
+    "posthog-js": "^1.372.6",
+    "posthog-node": "^5.33.0",
     "web-push": "^3.6.7",
     "zod": "catalog:"
   },

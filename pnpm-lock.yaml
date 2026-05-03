@@ -189,6 +189,12 @@ importers:
       pino-http:
         specifier: ^10
         version: 10.5.0
+      posthog-js:
+        specifier: ^1.372.6
+        version: 1.372.6
+      posthog-node:
+        specifier: ^5.33.0
+        version: 5.33.0
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -3020,6 +3026,15 @@ packages:
 
   posthog-js@1.372.6:
     resolution: {integrity: sha512-+Fy9fwWni5WDKQXiUBIzFvdmnZSR6OBxGC/4wj09JvvK5JE4dhI9ZlKO1+b887PowjeAx0sx1Tf+S1eAjDvzqg==}
+
+  posthog-node@5.33.0:
+    resolution: {integrity: sha512-9Sj1kKQTFlHoiWl0LvD3+8InhlD9jxeIiJrMLtU87bnYuQUDqAVR16v9/ZGaQ9C0vDVGVJJQG1a6XYeySy9hmg==}
+    engines: {node: ^20.20.0 || >=22.22.0}
+    peerDependencies:
+      rxjs: ^7.0.0
+    peerDependenciesMeta:
+      rxjs:
+        optional: true
 
   preact@10.29.1:
     resolution: {integrity: sha512-gQCLc/vWroE8lIpleXtdJhTFDogTdZG9AjMUpVkDf2iTCNwYNWA+u16dL41TqUDJO4gm2IgrcMv3uTpjd4Pwmg==}
@@ -5973,6 +5988,10 @@ snapshots:
       preact: 10.29.1
       query-selector-shadow-dom: 1.0.1
       web-vitals: 5.2.0
+
+  posthog-node@5.33.0:
+    dependencies:
+      '@posthog/core': 1.28.0
 
   preact@10.29.1: {}
 

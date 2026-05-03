@@ -30,6 +30,7 @@ import {
 } from "./leetcode";
 import { logger } from "./logger";
 import { sendPushNotificationsForUser } from "./pushNotification";
+import posthog from "./posthog";
 
 /** How often we run a full poll cycle, in milliseconds */
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5 * 60 * 1_000);
@@ -51,6 +52,12 @@ export async function runPollCycle(): Promise<void> {
   }
   isRunning = true;
   logger.info("Starting LeetCode poll cycle");
+  
+  const startTime = Date.now();
+  posthog.capture({
+    distinctId: "api-server",
+    event: "Poll Cycle Started",
+  });
 
   try {
     // 1. Gather every unique LeetCode username that anyone is following
@@ -72,6 +79,23 @@ export async function runPollCycle(): Promise<void> {
     }
 
     logger.info("Poll cycle complete");
+    posthog.capture({
+      distinctId: "api-server",
+      event: "Poll Cycle Completed",
+      properties: {
+        durationMs: Date.now() - startTime,
+        usernamesCount: usernames.length,
+      },
+    });
+  } catch (err) {
+    posthog.capture({
+      distinctId: "api-server",
+      event: "Poll Cycle Failed",
+      properties: {
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
+    throw err;
   } finally {
     isRunning = false;
   }
@@ -197,6 +221,15 @@ async function pollUser(username: string): Promise<void> {
     "New solved problems detected",
   );
 
+  posthog.capture({
+    distinctId: username,
+    event: "New Solved Problems Detected",
+    properties: {
+      count: allNewSubmissions.length,
+      problems: allNewSubmissions.map(s => s.title),
+    },
+  });
+
   // 4. Persist new solved problems (shared helper used by backfill too)
   const rows = await persistNewSubmissions(username, allNewSubmissions);
 
@@ -244,6 +277,15 @@ async function pollUser(username: string): Promise<void> {
     { username, followers: followers.length, problems: recentRows.length },
     "Notifications dispatched",
   );
+
+  posthog.capture({
+    distinctId: username,
+    event: "Notifications Dispatched",
+    properties: {
+      followersCount: followers.length,
+      problemsCount: recentRows.length,
+    },
+  });
 
   // 8. Send browser push notifications to opted-in followers
   //    One push per follower, summarising all newly solved problems in a single message.

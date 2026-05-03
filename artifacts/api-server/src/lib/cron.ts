@@ -23,6 +23,7 @@ import { and, eq } from "drizzle-orm";
 import { sendDailyDigests } from "./emailDigest";
 import { runPollCycle } from "./poller";
 import { logger } from "./logger";
+import posthog from "./posthog";
 
 /** Register all cron jobs. Call once at server startup. */
 export function startCronJobs(): void {
@@ -58,6 +59,16 @@ export function startCronJobs(): void {
 				"Cron: dispatching digest emails (UTC)",
 			);
 
+			posthog.capture({
+				distinctId: "api-server",
+				event: "Daily Digest Dispatched",
+				properties: {
+					count: targets.length,
+					hour: currentHour,
+					minute: currentMinute,
+				},
+			});
+
 			try {
 				await sendDailyDigests(targets.map((t) => t.userId));
 			} catch (err) {
@@ -71,6 +82,10 @@ export function startCronJobs(): void {
 	cron.schedule("*/5 * * * *", async () => {
 		logger.debug("Cron: poll heartbeat");
 		try {
+			posthog.capture({
+				distinctId: "api-server",
+				event: "Poll Heartbeat Executed",
+			});
 			await runPollCycle();
 		} catch (err) {
 			logger.error({ err }, "Cron: poll cycle failed");
