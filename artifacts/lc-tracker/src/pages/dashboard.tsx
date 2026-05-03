@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { usePostHog } from "@posthog/react";
 
 function generateWeeks() {
   const weeks = [];
@@ -109,6 +110,7 @@ function MyProfileBanner({
   myUsername: string | null;
   setMyUsername: (u: string | null) => void;
 }) {
+  const posthog = usePostHog();
   const [editing, setEditing] = useState(!myUsername);
   const [draft, setDraft] = useState(myUsername ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +118,7 @@ function MyProfileBanner({
   const commit = useCallback(() => {
     const trimmed = draft.trim();
     if (trimmed) {
+      posthog?.capture("set_leetcode_username", { username: trimmed });
       setMyUsername(trimmed);
       setEditing(false);
     }
@@ -212,6 +215,7 @@ function MyProfileBanner({
 }
 
 export default function DashboardPage() {
+  const posthog = usePostHog();
   const [lbScope, setLbScope] = useState<"following" | "global">("following");
   const [lbPeriod, setLbPeriod] = useState<string>("week");
   const [actFilter, setActFilter] = useState<"all" | "unsolved">("all");
@@ -439,7 +443,10 @@ export default function DashboardPage() {
                       variant={actView === "recent" ? "secondary" : "ghost"}
                       size="sm"
                       className="h-6 px-2 text-[10px]"
-                      onClick={() => setActView("recent")}
+                      onClick={() => {
+                        setActView("recent");
+                        posthog?.capture("change_activity_view", { view: "recent" });
+                      }}
                     >
                       Recent
                     </Button>
@@ -447,7 +454,10 @@ export default function DashboardPage() {
                       variant={actView === "grouped" ? "secondary" : "ghost"}
                       size="sm"
                       className="h-6 px-2 text-[10px]"
-                      onClick={() => setActView("grouped")}
+                      onClick={() => {
+                        setActView("grouped");
+                        posthog?.capture("change_activity_view", { view: "grouped" });
+                      }}
                     >
                       Grouped
                     </Button>

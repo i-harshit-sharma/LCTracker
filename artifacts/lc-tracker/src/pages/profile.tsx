@@ -20,6 +20,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { usePostHog } from "@posthog/react";
+import React from "react";
 
 function StatPill({
   label,
@@ -118,6 +120,7 @@ function FollowingCard({
 }
 
 export default function ProfilePage() {
+  const posthog = usePostHog();
   const { username } = useParams<{ username: string }>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -155,6 +158,7 @@ export default function ProfilePage() {
       { data: { leetcodeUsername: username } },
       {
         onSuccess: () => {
+          posthog?.capture("follow_user", { leetcodeUsername: username });
           toast({ title: `Now following @${username}` });
           invalidateAll();
         },
@@ -175,6 +179,7 @@ export default function ProfilePage() {
       { id: existingFollow.id },
       {
         onSuccess: () => {
+          posthog?.capture("unfollow_user", { leetcodeUsername: username });
           toast({ title: `Unfollowed @${username}` });
           invalidateAll();
         },
@@ -466,4 +471,3 @@ export default function ProfilePage() {
 }
 
 // React must be in scope for useState
-import React from "react";

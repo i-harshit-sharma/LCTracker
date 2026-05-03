@@ -112,6 +112,8 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
+import { PostHogIdentifier } from "@/components/PostHogIdentifier";
+
 function Router() {
   const [, setLocation] = useLocation();
 
@@ -123,6 +125,7 @@ function Router() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <PostHogIdentifier />
       <ClerkQueryClientCacheInvalidator />
       <Switch>
         <Route path="/" component={HomeRedirect} />
