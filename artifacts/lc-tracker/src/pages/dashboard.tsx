@@ -311,7 +311,7 @@ export default function DashboardPage() {
       problemSlug: string;
       problemTitle: string;
       difficulty: string;
-      solvers: { leetcodeUsername: string; displayName: string | null; avatarUrl: string | null; solvedAt: Date }[];
+      solvers: { leetcodeUsername: string; displayName: string | null; avatarUrl: string | null; solvedAt: Date; submissionId?: string | null }[];
       latestSolve: Date;
       isPrivate: boolean;
     }> = {};
@@ -341,6 +341,7 @@ export default function DashboardPage() {
           displayName: item.displayName ?? null,
           avatarUrl: item.avatarUrl ?? null,
           solvedAt: new Date(item.solvedAt),
+          submissionId: item.submissionId,
         });
       }
 
@@ -538,20 +539,32 @@ export default function DashboardPage() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[10px] text-muted-foreground mr-1">Solved by:</span>
                                 {group.solvers.map((s) => (
-                                  <Link
-                                    key={s.leetcodeUsername}
-                                    href={`/profiles/${s.leetcodeUsername}`}
-                                    className="flex items-center gap-1.5 bg-background border border-border px-2 py-1 rounded-full text-[10px] hover:border-primary/50 transition-colors"
-                                  >
-                                    {s.avatarUrl ? (
-                                      <img src={s.avatarUrl} className="h-3.5 w-3.5 rounded-full object-cover" />
-                                    ) : (
-                                      <div className="h-3.5 w-3.5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold">
-                                        {s.leetcodeUsername[0].toUpperCase()}
-                                      </div>
+                                  <div key={s.leetcodeUsername} className="flex items-center gap-1">
+                                    <Link
+                                      href={`/profiles/${s.leetcodeUsername}`}
+                                      className="flex items-center gap-1.5 bg-background border border-border px-2 py-1 rounded-full text-[10px] hover:border-primary/50 transition-colors"
+                                    >
+                                      {s.avatarUrl ? (
+                                        <img src={s.avatarUrl} className="h-3.5 w-3.5 rounded-full object-cover" />
+                                      ) : (
+                                        <div className="h-3.5 w-3.5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold">
+                                          {s.leetcodeUsername[0].toUpperCase()}
+                                        </div>
+                                      )}
+                                      {s.displayName || s.leetcodeUsername}
+                                    </Link>
+                                    {s.submissionId && !s.submissionId.startsWith("private-") && !s.submissionId.startsWith("unknown-") && (
+                                      <a
+                                        href={`https://leetcode.com/problems/${group.problemSlug}/submissions/${s.submissionId}/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                        title="View Submission"
+                                      >
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                      </a>
                                     )}
-                                    {s.displayName || s.leetcodeUsername}
-                                  </Link>
+                                  </div>
                                 ))}
                               </div>
                             </div>
@@ -585,20 +598,32 @@ export default function DashboardPage() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[10px] text-muted-foreground mr-1">Solved by:</span>
                                 {group.solvers.map((s) => (
-                                  <Link
-                                    key={s.leetcodeUsername}
-                                    href={`/profiles/${s.leetcodeUsername}`}
-                                    className="flex items-center gap-1.5 bg-background border border-border px-2 py-1 rounded-full text-[10px] hover:border-primary/50 transition-colors"
-                                  >
-                                    {s.avatarUrl ? (
-                                      <img src={s.avatarUrl} className="h-3.5 w-3.5 rounded-full object-cover" />
-                                    ) : (
-                                      <div className="h-3.5 w-3.5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold">
-                                        {s.leetcodeUsername[0].toUpperCase()}
-                                      </div>
+                                  <div key={s.leetcodeUsername} className="flex items-center gap-1">
+                                    <Link
+                                      href={`/profiles/${s.leetcodeUsername}`}
+                                      className="flex items-center gap-1.5 bg-background border border-border px-2 py-1 rounded-full text-[10px] hover:border-primary/50 transition-colors"
+                                    >
+                                      {s.avatarUrl ? (
+                                        <img src={s.avatarUrl} className="h-3.5 w-3.5 rounded-full object-cover" />
+                                      ) : (
+                                        <div className="h-3.5 w-3.5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold">
+                                          {s.leetcodeUsername[0].toUpperCase()}
+                                        </div>
+                                      )}
+                                      {s.displayName || s.leetcodeUsername}
+                                    </Link>
+                                    {s.submissionId && !s.submissionId.startsWith("private-") && !s.submissionId.startsWith("unknown-") && (
+                                      <a
+                                        href={`https://leetcode.com/problems/${group.problemSlug}/submissions/${s.submissionId}/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                        title="View Submission"
+                                      >
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                      </a>
                                     )}
-                                    {s.displayName || s.leetcodeUsername}
-                                  </Link>
+                                  </div>
                                 ))}
                               </div>
                             </div>
