@@ -194,7 +194,7 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
     const data = await gqlRequest<{
       matchedUser: {
         username: string;
-        profile: { realName: string | null; userAvatar: string | null };
+        profile: { realName: string | null; userAvatar: string | null; aboutMe: string | null };
         submitStats: {
           acSubmissionNum: { difficulty: string; count: number }[];
         };
