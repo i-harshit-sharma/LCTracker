@@ -163,6 +163,8 @@ export const GetPreferencesResponse = zod.object({
   lastDigestAt: zod.string().nullish(),
   updatedAt: zod.string(),
   leetcodeUsername: zod.string().nullish(),
+  isVerified: zod.boolean().optional(),
+  verificationToken: zod.string().nullish(),
 });
 
 /**
@@ -183,6 +185,23 @@ export const UpdatePreferencesResponse = zod.object({
   lastDigestAt: zod.string().nullish(),
   updatedAt: zod.string(),
   leetcodeUsername: zod.string().nullish(),
+  isVerified: zod.boolean().optional(),
+  verificationToken: zod.string().nullish(),
+});
+
+/**
+ * @summary Verify ownership of the LeetCode username via bio token
+ */
+export const VerifyLeetcodeUsernameResponse = zod.object({
+  userId: zod.string(),
+  emailEnabled: zod.boolean(),
+  digestHour: zod.number(),
+  digestMinute: zod.number(),
+  lastDigestAt: zod.string().nullish(),
+  updatedAt: zod.string(),
+  leetcodeUsername: zod.string().nullish(),
+  isVerified: zod.boolean().optional(),
+  verificationToken: zod.string().nullish(),
 });
 
 /**

@@ -38,6 +38,8 @@ export interface LCProfile {
   easySolved: number | null;
   mediumSolved: number | null;
   hardSolved: number | null;
+  aboutMe: string | null;
+  isPrivate: boolean;
 }
 
 export interface LCFollowingEntry {
@@ -66,6 +68,8 @@ const PROFILE_QUERY = `
       profile {
         realName
         userAvatar
+        aboutMe
+        isPrivacy
       }
       submitStats {
         acSubmissionNum {
@@ -199,8 +203,9 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
     }>(PROFILE_QUERY, { username });
 
     if (!data.matchedUser) return null;
-
+ 
     const { matchedUser } = data;
+    const isPrivate = !!matchedUser.profile.isPrivacy;
     const stats = matchedUser.submitStats.acSubmissionNum;
     const getCount = (d: string) => stats.find((s) => s.difficulty === d)?.count ?? null;
 
@@ -212,6 +217,8 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
       easySolved: getCount("Easy"),
       mediumSolved: getCount("Medium"),
       hardSolved: getCount("Hard"),
+      aboutMe: matchedUser.profile.aboutMe ?? null,
+      isPrivate,
     };
   } catch (err) {
     logger.warn({ err, username }, "Failed to fetch LeetCode profile");

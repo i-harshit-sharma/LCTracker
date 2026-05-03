@@ -28,6 +28,12 @@ export const userPreferencesTable = pgTable("user_preferences", {
   /** The user's own LeetCode username for personal stats. */
   leetcodeUsername: text("leetcode_username"),
 
+  /** Whether the user has verified ownership of their LeetCode account. */
+  isVerified: boolean("is_verified").notNull().default(false),
+
+  /** Unique token user must add to their LeetCode bio for verification. */
+  verificationToken: text("verification_token"),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

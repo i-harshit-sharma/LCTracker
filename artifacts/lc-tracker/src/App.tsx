@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Loader2 } from "lucide-react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -14,6 +15,8 @@ import FollowsPage from "@/pages/follows";
 import NotificationsPage from "@/pages/notifications";
 import ProfilePage from "@/pages/profile";
 import CreatePage from "@/pages/create-page";
+import VerificationPage from "@/pages/verification-page";
+import { useGetPreferences } from "@workspace/api-client-react";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -103,13 +106,35 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return (
     <>
       <Show when="signed-in">
-        <Component />
+        <VerificationGate>
+          <Component />
+        </VerificationGate>
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />
       </Show>
     </>
   );
+}
+
+function VerificationGate({ children }: { children: React.ReactNode }) {
+  const { data: prefs, isLoading } = useGetPreferences();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const isVerified = prefs?.leetcodeUsername && prefs?.isVerified;
+
+  if (!isVerified) {
+    return <VerificationPage />;
+  }
+
+  return <>{children}</>;
 }
 
 import { PostHogIdentifier } from "@/components/PostHogIdentifier";

@@ -6,13 +6,19 @@
  */
 
 import { Router, type IRouter } from "express";
-import { db, userPreferencesTable } from "@workspace/db";
+import { db, userPreferencesTable, eq } from "@workspace/db";
 import { GetPreferencesResponse, UpdatePreferencesBody } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
 import posthog from "../lib/posthog";
+import { getLeetCodeProfile } from "../lib/leetcode";
+import crypto from "crypto";
 
 const router: IRouter = Router();
+
+function generateVerificationToken(): string {
+  return "lc_verify_" + crypto.randomBytes(8).toString("hex");
+}
 
 router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
   const userId = (req as any).userId as string;
@@ -37,6 +43,18 @@ router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // Generate token if user has a username but is not verified and lacks a token
+  if (prefs.leetcodeUsername && !prefs.isVerified && !prefs.verificationToken) {
+    const token = generateVerificationToken();
+    const [updated] = await db
+      .update(userPreferencesTable)
+      .set({ verificationToken: token, updatedAt: new Date() })
+      .where(eq(userPreferencesTable.userId, userId))
+      .returning();
+    res.json(GetPreferencesResponse.parse(serializeDates(updated)));
+    return;
+  }
+
   res.json(GetPreferencesResponse.parse(serializeDates(prefs)));
 });
 
@@ -52,11 +70,26 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
   const { digestHour, digestMinute, emailEnabled, leetcodeUsername } = parsed.data;
 
   // Build the patch — only update fields that were supplied
-  const patch: Partial<typeof parsed.data & { updatedAt: Date }> = { updatedAt: new Date() };
+  const patch: any = { updatedAt: new Date() };
   if (digestHour   !== undefined) patch.digestHour   = digestHour;
   if (digestMinute !== undefined) patch.digestMinute = digestMinute;
   if (emailEnabled !== undefined) patch.emailEnabled = emailEnabled;
-  if (leetcodeUsername !== undefined) patch.leetcodeUsername = leetcodeUsername ? leetcodeUsername.toLowerCase() : null;
+  if (leetcodeUsername !== undefined) {
+    const newUsername = leetcodeUsername ? leetcodeUsername.toLowerCase() : null;
+    
+    // If username is changing, reset verification status
+    const [current] = await db
+      .select({ leetcodeUsername: userPreferencesTable.leetcodeUsername })
+      .from(userPreferencesTable)
+      .where(eq(userPreferencesTable.userId, userId))
+      .limit(1);
+
+    if (current && current.leetcodeUsername !== newUsername) {
+      patch.leetcodeUsername = newUsername;
+      patch.isVerified = false;
+      patch.verificationToken = newUsername ? generateVerificationToken() : null;
+    }
+  }
 
   const [updated] = await db
     .insert(userPreferencesTable)
@@ -81,6 +114,67 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
       emailEnabled: updated.emailEnabled,
       digestHour: updated.digestHour,
       digestMinute: updated.digestMinute,
+      leetcodeUsername: updated.leetcodeUsername,
+    },
+  });
+});
+
+router.post("/preferences/verify", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
+
+  const [prefs] = await db
+    .select()
+    .from(userPreferencesTable)
+    .where(eq(userPreferencesTable.userId, userId))
+    .limit(1);
+
+  if (!prefs || !prefs.leetcodeUsername || !prefs.verificationToken) {
+    res.status(400).json({ error: "No username or verification token found" });
+    return;
+  }
+
+  if (prefs.isVerified) {
+    res.json(GetPreferencesResponse.parse(serializeDates(prefs)));
+    return;
+  }
+
+  const profile = await getLeetCodeProfile(prefs.leetcodeUsername);
+
+  if (!profile) {
+    res.status(400).json({ error: "LeetCode profile not found" });
+    return;
+  }
+
+  if (profile.isPrivate) {
+    res.status(400).json({ error: "Your LeetCode profile is private. Please make it public to verify." });
+    return;
+  }
+
+  const bio = profile.aboutMe || "";
+  if (!bio.includes(prefs.verificationToken)) {
+    res.status(400).json({ 
+      error: "Verification token not found in your LeetCode 'About' section. " +
+             "Please ensure you've added the string exactly as shown."
+    });
+    return;
+  }
+
+  const [updated] = await db
+    .update(userPreferencesTable)
+    .set({ 
+      isVerified: true, 
+      verificationToken: null, // Clear token after successful verification
+      updatedAt: new Date() 
+    })
+    .where(eq(userPreferencesTable.userId, userId))
+    .returning();
+
+  res.json(GetPreferencesResponse.parse(serializeDates(updated)));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "User Verified",
+    properties: {
       leetcodeUsername: updated.leetcodeUsername,
     },
   });

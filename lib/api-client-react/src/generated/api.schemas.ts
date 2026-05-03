@@ -139,6 +139,9 @@ export interface Preferences {
   updatedAt: string;
   /** @nullable */
   leetcodeUsername?: string | null;
+  isVerified?: boolean;
+  /** @nullable */
+  verificationToken?: string | null;
 }
 
 export interface UpdatePreferencesBody {

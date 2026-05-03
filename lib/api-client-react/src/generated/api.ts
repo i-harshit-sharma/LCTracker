@@ -1057,6 +1057,87 @@ export const useUpdatePreferences = <
 };
 
 /**
+ * @summary Verify ownership of the LeetCode username via bio token
+ */
+export const getVerifyLeetcodeUsernameUrl = () => {
+  return `/api/preferences/verify`;
+};
+
+export const verifyLeetcodeUsername = async (
+  options?: RequestInit,
+): Promise<Preferences> => {
+  return customFetch<Preferences>(getVerifyLeetcodeUsernameUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getVerifyLeetcodeUsernameMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyLeetcodeUsername>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyLeetcodeUsername>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["verifyLeetcodeUsername"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyLeetcodeUsername>>,
+    void
+  > = () => {
+    return verifyLeetcodeUsername(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyLeetcodeUsernameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyLeetcodeUsername>>
+>;
+
+export type VerifyLeetcodeUsernameMutationError = ErrorType<void>;
+
+/**
+ * @summary Verify ownership of the LeetCode username via bio token
+ */
+export const useVerifyLeetcodeUsername = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyLeetcodeUsername>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyLeetcodeUsername>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getVerifyLeetcodeUsernameMutationOptions(options));
+};
+
+/**
  * @summary Get VAPID public key for push notifications
  */
 export const getGetVapidPublicKeyUrl = () => {

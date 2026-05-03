@@ -266,6 +266,23 @@ paths:
         "401":
           description: Unauthorized
 
+  /preferences/verify:
+    post:
+      operationId: verifyLeetcodeUsername
+      tags: [preferences]
+      summary: Verify ownership of the LeetCode username via bio token
+      responses:
+        "200":
+          description: Verification successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "400":
+          description: Verification failed (token not found or profile private)
+        "401":
+          description: Unauthorized
+
   /push/vapid-public-key:
     get:
       operationId: getVapidPublicKey
@@ -651,6 +668,10 @@ components:
         updatedAt:
           type: string
         leetcodeUsername:
+          type: ["string", "null"]
+        isVerified:
+          type: boolean
+        verificationToken:
           type: ["string", "null"]
       required:
         - userId
