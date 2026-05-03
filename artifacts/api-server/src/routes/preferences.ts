@@ -10,6 +10,7 @@ import { db, userPreferencesTable } from "@workspace/db";
 import { GetPreferencesResponse, UpdatePreferencesBody } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
+import posthog from "../lib/posthog";
 
 const router: IRouter = Router();
 
@@ -72,6 +73,17 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
     .returning();
 
   res.json(GetPreferencesResponse.parse(serializeDates(updated)));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Preferences Updated",
+    properties: {
+      emailEnabled: updated.emailEnabled,
+      digestHour: updated.digestHour,
+      digestMinute: updated.digestMinute,
+      leetcodeUsername: updated.leetcodeUsername,
+    },
+  });
 });
 
 export default router;

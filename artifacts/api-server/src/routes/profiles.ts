@@ -24,6 +24,7 @@ import { GetLeetcodeProfileParams, GetLeetcodeProfileResponse, GetDbProfileSumma
 import { getLeetCodeProfile, getLeetCodeFollowing } from "../lib/leetcode";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
+import posthog from "../lib/posthog";
 import type { LCFollowingEntry } from "../lib/leetcode";
 
 const router: IRouter = Router();
@@ -128,6 +129,14 @@ router.get("/profiles/:username", requireAuth, async (req, res): Promise<void> =
       }),
     ),
   );
+
+  posthog.capture({
+    distinctId: (req as any).userId as string,
+    event: "Profile Viewed",
+    properties: {
+      viewedUsername: username,
+    },
+  });
 });
 
 /**
@@ -232,6 +241,15 @@ router.get("/profiles/:username/db-summary", requireAuth, async (req, res): Prom
       }),
     ),
   );
+
+  posthog.capture({
+    distinctId: (req as any).userId as string,
+    event: "Profile Summary Viewed",
+    properties: {
+      viewedUsername: username,
+      period,
+    },
+  });
 });
 
 /**
@@ -306,6 +324,14 @@ router.post("/profiles/:username/save", requireAuth, async (req, res): Promise<v
       }),
     ),
   );
+
+  posthog.capture({
+    distinctId: (req as any).userId as string,
+    event: "Profile Saved",
+    properties: {
+      savedUsername: username,
+    },
+  });
 });
 
 export default router;

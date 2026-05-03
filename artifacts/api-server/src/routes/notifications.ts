@@ -17,6 +17,8 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
+import { logger } from "../lib/logger";
+import posthog from "../lib/posthog";
 
 const router: IRouter = Router();
 
@@ -40,6 +42,15 @@ router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
     .orderBy(desc(sql`COALESCE(${notificationsTable.solvedAt}, ${notificationsTable.createdAt})`));
 
   res.json(ListNotificationsResponse.parse(serializeDates(rows)));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Notifications Listed",
+    properties: {
+      unreadOnly,
+      count: rows.length,
+    },
+  });
 });
 
 router.put("/notifications/read-all", requireAuth, async (req, res): Promise<void> => {
@@ -56,6 +67,11 @@ router.put("/notifications/read-all", requireAuth, async (req, res): Promise<voi
     );
 
   res.json({ success: true });
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Notifications Marked Read-All",
+  });
 });
 
 router.put("/notifications/:id/read", requireAuth, async (req, res): Promise<void> => {
@@ -85,6 +101,15 @@ router.put("/notifications/:id/read", requireAuth, async (req, res): Promise<voi
   }
 
   res.json(MarkNotificationReadResponse.parse(serializeDates(updated)));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Notification Marked Read",
+    properties: {
+      notificationId: updated.id,
+      problemSlug: updated.problemSlug,
+    },
+  });
 });
 
 export default router;

@@ -18,6 +18,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { logger } from "../lib/logger";
+import posthog from "../lib/posthog";
 
 const router: IRouter = Router();
 
@@ -57,6 +58,14 @@ router.post("/push/subscribe", requireAuth, async (req, res): Promise<void> => {
 
   logger.info({ userId, endpoint }, "Push subscription saved");
   res.json(SavePushSubscriptionResponse.parse({ success: true }));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Push Subscribed",
+    properties: {
+      endpoint,
+    },
+  });
 });
 
 // ── DELETE /api/push/subscribe ────────────────────────────────────────────────
@@ -83,6 +92,14 @@ router.delete("/push/subscribe", requireAuth, async (req, res): Promise<void> =>
 
   logger.info({ userId, endpoint }, "Push subscription removed");
   res.json(DeletePushSubscriptionResponse.parse({ success: true }));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Push Unsubscribed",
+    properties: {
+      endpoint,
+    },
+  });
 });
 
 // ── POST /api/push/mock ──────────────────────────────────────────────────────
@@ -101,6 +118,11 @@ router.post("/push/mock", requireAuth, async (req, res): Promise<void> => {
   });
 
   res.json({ success: true });
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Mock Push Sent",
+  });
 });
 
 export default router;

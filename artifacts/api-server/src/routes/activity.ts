@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
+import posthog from "../lib/posthog";
 
 const router: IRouter = Router();
 
@@ -62,6 +63,15 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
     .limit(limit);
 
   res.json(ListActivityResponse.parse(serializeDates(solves)));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Activity Feed Viewed",
+    properties: {
+      count: solves.length,
+      limit,
+    },
+  });
 });
 
 router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
@@ -162,6 +172,11 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       mostActiveDisplayName: activeRows[0]?.displayName ?? null,
     }),
   );
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Stats Viewed",
+  });
 });
 
 router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void> => {
@@ -291,6 +306,16 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
     .slice(0, 50);
 
   res.json(GetLeaderboardResponse.parse(serializeDates(leaderboard)));
+
+  posthog.capture({
+    distinctId: userId,
+    event: "Leaderboard Viewed",
+    properties: {
+      scope,
+      period,
+      count: leaderboard.length,
+    },
+  });
 });
 
 export default router;
