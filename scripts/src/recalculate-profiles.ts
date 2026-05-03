@@ -1,7 +1,15 @@
-import "dotenv/config";
-import { db, leetcodeProfilesTable, solvedProblemsTable, eq } from "@workspace/db";
-import { backfillUserProblems } from "../../artifacts/api-server/src/lib/poller";
-import { logger } from "../../artifacts/api-server/src/lib/logger";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../../artifacts/api-server/.env") });
+
+// Use dynamic imports to ensure dotenv.config() executes before lib/db/src/index.ts is loaded
+const { db, leetcodeProfilesTable, solvedProblemsTable, eq } = await import("@workspace/db");
+const { backfillUserProblems } = await import("../../artifacts/api-server/src/lib/poller");
+const { logger } = await import("../../artifacts/api-server/src/lib/logger");
 
 /**
  * Manual Recalculation Script
