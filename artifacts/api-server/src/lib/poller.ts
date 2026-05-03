@@ -440,7 +440,8 @@ export async function backfillUserProblems(username: string): Promise<void> {
           "Adding unknown solves during backfill",
         );
         for (let i = 0; i < unknownToAdd; i++) {
-          const ts = Math.floor(Date.now() / 1000);
+          // For historical backfill, we use Unix epoch 0 so these don't pollute "this week" stats
+          const ts = 0;
           allSubmissions.push({
             id: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
             title: `Private ${difficulty} Problem`,
