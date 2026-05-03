@@ -69,7 +69,6 @@ const PROFILE_QUERY = `
         realName
         userAvatar
         aboutMe
-        isPrivacy
       }
       submitStats {
         acSubmissionNum {
@@ -203,9 +202,9 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
     }>(PROFILE_QUERY, { username });
 
     if (!data.matchedUser) return null;
- 
+
     const { matchedUser } = data;
-    const isPrivate = !!matchedUser.profile.isPrivacy;
+    const isPrivate = !matchedUser.profile; // Simplistic check, if no profile object, it's private or deleted
     const stats = matchedUser.submitStats.acSubmissionNum;
     const getCount = (d: string) => stats.find((s) => s.difficulty === d)?.count ?? null;
 
