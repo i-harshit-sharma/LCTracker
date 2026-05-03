@@ -95,9 +95,9 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setUTCDate(startOfToday.getUTCDate() - diff);
 
-  // Count today's solves
+  // Count today's unique solves
   const todayRows = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int` })
     .from(solvedProblemsTable)
     .where(
       and(
@@ -106,9 +106,9 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       ),
     );
 
-  // Count this week's solves
+  // Count this week's unique solves
   const weekRows = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int` })
     .from(solvedProblemsTable)
     .where(
       and(
@@ -117,11 +117,11 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       ),
     );
 
-  // Most common difficulty this week
+  // Most common difficulty this week (based on unique problems)
   const diffRows = await db
     .select({
       difficulty: solvedProblemsTable.difficulty,
-      count: sql<number>`count(*)::int`,
+      count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
     })
     .from(solvedProblemsTable)
     .where(
@@ -131,7 +131,7 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       ),
     )
     .groupBy(solvedProblemsTable.difficulty)
-    .orderBy(desc(sql`count(*)`))
+    .orderBy(desc(sql`count(distinct ${solvedProblemsTable.problemSlug})`))
     .limit(1);
 
   // Most active user this week
