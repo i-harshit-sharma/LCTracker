@@ -17,13 +17,16 @@
  * a newly followed user's historical solved problems at follow time.
  */
 
-import { db, followsTable, leetcodeProfilesTable, solvedProblemsTable, notificationsTable, eq, inArray, and } from "@workspace/db";
+import { db, followsTable, leetcodeProfilesTable, solvedProblemsTable, notificationsTable, scannerMetadataTable, eq, inArray, and } from "@workspace/db";
 
 import {
   getRecentAcceptedSubmissions,
   getLeetCodeProfile,
   getLeetCodeFollowing,
   getProblemDifficulty,
+  getSubmissionDetails,
+  getLatestSubmissionId,
+  LeetCodeAuthError,
   sleep,
   INTER_USER_DELAY_MS,
   type LCSubmission,
@@ -78,6 +81,17 @@ export async function runPollCycle(): Promise<void> {
       await sleep(INTER_USER_DELAY_MS);
     }
 
+    // 2. Run the global brute-force scanner to catch missing private solves
+    try {
+      await runGlobalScanner();
+    } catch (err) {
+      if (err instanceof LeetCodeAuthError) {
+        // Already handled/captured in PostHog
+      } else {
+        logger.error({ err }, "Unhandled error in global scanner");
+      }
+    }
+
     logger.info("Poll cycle complete");
     posthog.capture({
       distinctId: "api-server",
@@ -118,6 +132,7 @@ async function pollUser(username: string): Promise<void> {
       .where(eq(leetcodeProfilesTable.username, username))
       .limit(1)
       .then((rows) => rows[0]),
+    getLatestSubmissionId(),
   ]);
 
   // 2. Upsert shared profile cache in leetcode_profiles (one row per username)
@@ -187,6 +202,9 @@ async function pollUser(username: string): Promise<void> {
       })),
     );
 
+    const missingByDifficulty: Record<string, number> = {};
+    let totalMissing = 0;
+
     for (const { key, difficulty } of diffs) {
       const newVal = profile[key] ?? 0;
       const oldVal = oldProfile[key] ?? 0;
@@ -194,12 +212,19 @@ async function pollUser(username: string): Promise<void> {
       const foundCount = newWithDiff.filter((s) => s.difficulty === difficulty).length;
 
       if (delta > foundCount) {
-        const unknownToAdd = delta - foundCount;
+        const count = delta - foundCount;
+        missingByDifficulty[difficulty] = count;
+        totalMissing += count;
         logger.info(
-          { username, difficulty, count: unknownToAdd },
+          { username, difficulty, count },
           "Detected unknown solves via profile count",
         );
-        for (let i = 0; i < unknownToAdd; i++) {
+      }
+    }
+
+    if (totalMissing > 0) {
+      for (const [difficulty, count] of Object.entries(missingByDifficulty)) {
+        for (let i = 0; i < count; i++) {
           const ts = Math.floor(Date.now() / 1000);
           allNewSubmissions.push({
             id: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
@@ -211,6 +236,8 @@ async function pollUser(username: string): Promise<void> {
       }
     }
   }
+
+
 
   if (!allNewSubmissions.length) {
     logger.debug({ username }, "No new solved problems detected");
@@ -464,6 +491,187 @@ export async function backfillUserProblems(username: string): Promise<void> {
     "Backfill complete",
   );
 }
+
+/**
+ * Updates the persistent scanner progress in the database.
+ */
+async function updateLastScannedId(id: number) {
+  await db
+    .insert(scannerMetadataTable)
+    .values({
+      key: "last_scanned_id",
+      value: id.toString(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: scannerMetadataTable.key,
+      set: {
+        value: id.toString(),
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * Global brute-force scanner that checks individual submission IDs.
+ * This identifies solves for any tracked user, even if their profile is private.
+ */
+async function runGlobalScanner(): Promise<void> {
+  const sessionToken = process.env.LEETCODE_SESSION;
+  const csrfToken = process.env.LEETCODE_CSRF_TOKEN;
+
+  if (!sessionToken || !csrfToken) {
+    logger.debug("Scanner skipped: LEETCODE_SESSION or LEETCODE_CSRF_TOKEN missing");
+    return;
+  }
+
+  try {
+    // 1. Get last scanned ID from DB
+    const meta = await db
+      .select()
+      .from(scannerMetadataTable)
+      .where(eq(scannerMetadataTable.key, "last_scanned_id"))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    const START_ID_DEFAULT = 1994457170;
+    let lastId = meta ? parseInt(meta.value, 10) : START_ID_DEFAULT;
+
+    // 2. Get current latest ID from LeetCode
+    const currentMaxId = await getLatestSubmissionId();
+    if (!currentMaxId) return;
+
+    if (currentMaxId <= lastId) {
+      logger.debug({ lastId, currentMaxId }, "Scanner: No new submissions to scan");
+      return;
+    }
+
+    logger.info({ from: lastId, to: currentMaxId }, "Scanner: Starting scan range");
+
+    // 3. Gather every unique LeetCode username that anyone is following
+    const followRows = await db
+      .selectDistinct({ leetcodeUsername: followsTable.leetcodeUsername })
+      .from(followsTable);
+    const trackedUsernames = new Set(followRows.map((r) => r.leetcodeUsername.toLowerCase()));
+
+    if (trackedUsernames.size === 0) return;
+
+    // 4. Scan IDs in chunks
+    const MAX_IDS_PER_CYCLE = 3000;
+    let processedCount = 0;
+
+    for (let id = lastId + 1; id <= currentMaxId && processedCount < MAX_IDS_PER_CYCLE; id++) {
+      try {
+        const details = await getSubmissionDetails(id);
+        if (details && details.statusCode === 10) {
+          const username = details.user.username.toLowerCase();
+          if (trackedUsernames.has(username)) {
+            logger.info({ id, username, problem: details.question.titleSlug }, "Scanner found a solve!");
+            await handleScannerFoundSolve(details.user.username, {
+              id: id.toString(),
+              title: details.question.title,
+              titleSlug: details.question.titleSlug,
+              timestamp: details.timestamp.toString(),
+            });
+          }
+        }
+      } catch (err) {
+        if (err instanceof LeetCodeAuthError) {
+          posthog.capture({
+            distinctId: "api-server",
+            event: "LeetCode Token Expired",
+            properties: { error: err.message },
+          });
+          logger.error({ err }, "Scanner halted: Token expired");
+          throw err;
+        }
+        logger.warn({ id, err }, "Scanner failed to check ID");
+      }
+
+      processedCount++;
+      // Batch progress update
+      if (processedCount % 50 === 0) {
+        await updateLastScannedId(id);
+      }
+
+      // Speed control: fast catch-up if far behind
+      const diff = currentMaxId - id;
+      if (diff > 500) {
+        await sleep(50); // Catch-up mode
+      } else {
+        await sleep(200); // Slow mode as we approach real-time
+      }
+    }
+
+    await updateLastScannedId(lastId + processedCount);
+    logger.info({ processedCount }, "Scanner cycle complete");
+  } catch (err) {
+    if (err instanceof LeetCodeAuthError) throw err;
+    logger.error({ err }, "Global scanner loop failed");
+  }
+}
+
+/**
+ * Processes a single solve identified by the global scanner.
+ * Stores the problem and sends notifications.
+ */
+async function handleScannerFoundSolve(username: string, submission: LCSubmission) {
+  const difficulty = await getProblemDifficulty(submission.titleSlug);
+
+  const row = {
+    leetcodeUsername: username,
+    problemSlug: submission.titleSlug,
+    problemTitle: submission.title,
+    difficulty,
+    submissionId: submission.id,
+    solvedAt: new Date(Number(submission.timestamp) * 1000),
+  };
+
+  // 1. Store the solve
+  const inserted = await db
+    .insert(solvedProblemsTable)
+    .values(row)
+    .onConflictDoNothing()
+    .returning();
+
+  if (!inserted.length) return; // Already exists
+
+  // 2. Fetch followers and notify
+  const followers = await db
+    .select({ userId: followsTable.userId })
+    .from(followsTable)
+    .where(eq(followsTable.leetcodeUsername, username));
+
+  if (!followers.length) return;
+
+  const notifications = followers.map((f) => ({
+    userId: f.userId,
+    message: `${username} solved "${row.problemTitle}"`,
+    type: "solve" as const,
+    leetcodeUsername: username,
+    problemTitle: row.problemTitle,
+    problemSlug: row.problemSlug,
+    difficulty: row.difficulty,
+    submissionId: row.submissionId,
+    read: false,
+    solvedAt: row.solvedAt,
+  }));
+
+  await db.insert(notificationsTable).values(notifications);
+
+  // Browser push notifications
+  await Promise.all(
+    followers.map((f) =>
+      sendPushNotificationsForUser(f.userId, {
+        title: `🔥 ${username} solved "${row.problemTitle}"`,
+        body: `They're on a roll! Check it out.`,
+        url: `https://leetcode.com/problems/${row.problemSlug}/`,
+        icon: "/logo.svg",
+      }),
+    ),
+  );
+}
+
 
 /**
  * Starts the background polling loop.

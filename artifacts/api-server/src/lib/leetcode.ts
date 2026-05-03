@@ -19,6 +19,13 @@ import { logger } from "./logger";
 
 const LEETCODE_GQL = "https://leetcode.com/graphql";
 
+export class LeetCodeAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LeetCodeAuthError";
+  }
+}
+
 /** Delay ms between consecutive user polls to avoid hammering LeetCode */
 export const INTER_USER_DELAY_MS = 3_000;
 
@@ -98,6 +105,23 @@ const QUESTION_QUERY = `
   }
 `;
 
+/** GraphQL query for submission details (authenticated) */
+const SUBMISSION_DETAILS_QUERY = `
+  query submissionDetails($submissionId: Int!) {
+    submissionDetails(submissionId: $submissionId) {
+      timestamp
+      statusCode
+      user {
+        username
+      }
+      question {
+        titleSlug
+        title
+      }
+    }
+  }
+`;
+
 /** Shared fetch headers that mimic a browser request */
 const HEADERS = {
   "Content-Type": "application/json",
@@ -119,11 +143,21 @@ async function gqlRequest<T>(
 ): Promise<T> {
   let delay = 2_000; // initial back-off: 2 s
 
+  // Dynamic headers to support authenticated requests if session tokens are provided
+  const leetcodeSession = process.env.LEETCODE_SESSION;
+  const csrfToken = process.env.LEETCODE_CSRF_TOKEN;
+
+  const headers: Record<string, string> = { ...HEADERS };
+  if (leetcodeSession && csrfToken) {
+    headers["Cookie"] = `LEETCODE_SESSION=${leetcodeSession}; csrftoken=${csrfToken};`;
+    headers["x-csrftoken"] = csrfToken;
+  }
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(LEETCODE_GQL, {
         method: "POST",
-        headers: HEADERS,
+        headers,
         body: JSON.stringify({ query, variables }),
         signal: AbortSignal.timeout(15_000), // 15-second request timeout
       });
@@ -146,8 +180,18 @@ async function gqlRequest<T>(
         throw new Error(`LeetCode GraphQL error: HTTP ${res.status}`);
       }
 
-      const json = (await res.json()) as { data?: T; errors?: unknown[] };
+      const json = (await res.json()) as { data?: T; errors?: any[] };
       if (json.errors?.length) {
+        // Check for specific authentication/permission errors
+        const isAuthError = json.errors.some(
+          (e) =>
+            e.message?.toLowerCase().includes("authenticated") ||
+            e.message?.toLowerCase().includes("permission") ||
+            e.message?.toLowerCase().includes("sign in"),
+        );
+        if (isAuthError) {
+          throw new LeetCodeAuthError(`LeetCode session expired or invalid: ${json.errors[0].message}`);
+        }
         throw new Error(`LeetCode GraphQL errors: ${JSON.stringify(json.errors)}`);
       }
       return json.data as T;
@@ -253,6 +297,40 @@ export async function getProblemDifficulty(titleSlug: string): Promise<string> {
     logger.warn({ err, titleSlug }, "Failed to fetch problem difficulty");
     return "Unknown";
   }
+}
+
+/**
+ * Fetches details for a specific submission by ID.
+ * Requires LEETCODE_SESSION and LEETCODE_CSRF_TOKEN for most IDs.
+ */
+export async function getSubmissionDetails(submissionId: number) {
+  try {
+    const data = await gqlRequest<{
+      submissionDetails: {
+        timestamp: number;
+        statusCode: number;
+        user: { username: string };
+        question: { titleSlug: string; title: string };
+      } | null;
+    }>(SUBMISSION_DETAILS_QUERY, { submissionId });
+    return data.submissionDetails;
+  } catch (err) {
+    // Note: This often fails if the submission is private or the session is invalid
+    return null;
+  }
+}
+
+/**
+ * Gets a "recent enough" submission ID to start brute-force scanning.
+ * We fetch from a known active user to get a high ID.
+ */
+export async function getLatestSubmissionId(): Promise<number | null> {
+  // We use the user's example user as a high-activity reference
+  const submissions = await getRecentAcceptedSubmissions("astitvaraj", 1);
+  if (submissions.length > 0) {
+    return parseInt(submissions[0].id, 10);
+  }
+  return null;
 }
 
 /**
