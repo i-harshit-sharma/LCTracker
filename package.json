@@ -7,6 +7,10 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "lint": "prettier --check .",
+    "generate:api": "pnpm --filter @workspace/api-spec run codegen",
+    "test:unit": "pnpm -r --if-present run test:unit",
+    "test:e2e": "pnpm -r --if-present run test:e2e",
     "version-bump": "bash ./scripts/version-bump.sh"
   },
   "private": true,
