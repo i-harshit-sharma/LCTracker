@@ -60,6 +60,7 @@ export function PredictionsGraph() {
 
   const [visibleUsers, setVisibleUsers] = useState<Set<string>>(new Set());
   const [hasInitializedVisibility, setHasInitializedVisibility] = useState(false);
+  const [sortBy, setSortBy] = useState<"velocity" | "required">("velocity");
 
   // Generate keys for the last 3 weeks to calculate a moving average velocity
   const historicalWeeks = useMemo(() => {
@@ -213,7 +214,13 @@ export function PredictionsGraph() {
         requiredDailyRate,
         overtakeDate
       };
-    }).sort((a, b) => b.velocity - a.velocity);
+    }).sort((a, b) => {
+      if (sortBy === "velocity") {
+        return b.velocity - a.velocity;
+      } else {
+        return b.requiredDailyRate - a.requiredDailyRate;
+      }
+    });
 
     // Generate chart data
     const totalWeeks = 8;
@@ -289,7 +296,7 @@ export function PredictionsGraph() {
     }
 
     return { chartData, events, stats, challenge };
-  }, [currentLeaderboard, historicalQueries, historicalWeeks, myUsername]);
+  }, [currentLeaderboard, historicalQueries, historicalWeeks, myUsername, sortBy]);
 
   const { chartData: predictionData, events: overtakingEvents, stats: userStats, challenge } = processedData;
 
@@ -460,11 +467,31 @@ export function PredictionsGraph() {
         </div>
 
         {userStats.length > 0 && (
-          <div className="mt-8 space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2 px-1">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              Velocity & Growth Rate
-            </h4>
+          <div className="mt-8 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-500" />
+                Velocity & Growth Rate
+              </h4>
+              <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/50 border border-border/50">
+                <Button 
+                  variant={sortBy === "velocity" ? "default" : "ghost"} 
+                  size="sm" 
+                  className={`h-7 text-[10px] px-2.5 ${sortBy === "velocity" ? "shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setSortBy("velocity")}
+                >
+                  Current Speed
+                </Button>
+                <Button 
+                  variant={sortBy === "required" ? "default" : "ghost"} 
+                  size="sm" 
+                  className={`h-7 text-[10px] px-2.5 ${sortBy === "required" ? "shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setSortBy("required")}
+                >
+                  Required Speed
+                </Button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {userStats.map((stat, i) => {
                 const isVisible = visibleUsers.has(stat.username);
