@@ -42,13 +42,18 @@ describe("leetcode api client", () => {
     });
 
     it("should return an empty array on failure", async () => {
+      vi.useFakeTimers();
       (fetch as any).mockResolvedValue({
         ok: false,
         status: 500,
       });
 
-      const result = await getRecentAcceptedSubmissions("testuser");
+      const promise = getRecentAcceptedSubmissions("testuser");
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
       expect(result).toEqual([]);
+      vi.useRealTimers();
     });
   });
 

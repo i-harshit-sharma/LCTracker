@@ -10,5 +10,8 @@ export default defineConfig({
       "**/dist/**",
       "**/.{idea,git,cache,output,temp}/**",
     ],
+    env: {
+      DATABASE_URL: "postgres://postgres:postgres@localhost:5432/postgres",
+    },
   },
 });
