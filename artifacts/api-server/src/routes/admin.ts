@@ -189,7 +189,7 @@ router.post("/admin/deploy", async (req, res): Promise<void> => {
   }
 
   // We resolve the path to start.sh relative to this file.
-  const scriptPath = path.resolve(__dirname, "../../../../start.sh");
+  const scriptPath = path.resolve(__dirname, "../../../start.sh");
 
   logger.info({ scriptPath }, "Triggering automated deployment with streaming logs");
 
