@@ -24,6 +24,7 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePostHog } from "@posthog/react";
+import { PredictionsGraph } from "@/components/PredictionsGraph";
 
 function generateWeeks() {
   const weeks = [];
@@ -1023,6 +1024,9 @@ export default function DashboardPage() {
             </Card>
           </div>
         </div>
+
+        {/* Prediction Section */}
+        <PredictionsGraph />
       </main>
     </div>
   );
