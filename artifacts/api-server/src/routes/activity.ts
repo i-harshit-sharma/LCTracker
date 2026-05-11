@@ -149,7 +149,7 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
     .select({
       leetcodeUsername: solvedProblemsTable.leetcodeUsername,
       displayName: leetcodeProfilesTable.displayName,
-      count: sql<number>`count(*)::int`,
+      count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
     })
     .from(solvedProblemsTable)
     .leftJoin(leetcodeProfilesTable, eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username))
@@ -160,7 +160,7 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       ),
     )
     .groupBy(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.displayName)
-    .orderBy(desc(sql`count(*)`))
+    .orderBy(desc(sql`count(distinct ${solvedProblemsTable.problemSlug})`))
     .limit(1);
 
   res.json(
@@ -281,7 +281,7 @@ router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void>
   const periodCounts = await db
     .select({
       leetcodeUsername: solvedProblemsTable.leetcodeUsername,
-      solvedInPeriod: sql<number>`count(*)::int`,
+      solvedInPeriod: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
     })
     .from(solvedProblemsTable)
     .where(

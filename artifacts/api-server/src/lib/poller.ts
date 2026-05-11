@@ -126,7 +126,7 @@ export async function runPollCycle(): Promise<void> {
  *   - Upserts shared profile metadata into leetcode_profiles table
  */
 async function pollUser(username: string): Promise<void> {
-  const [submissions, profile, following, oldProfile] = await Promise.all([
+  const [rawSubmissions, profile, following, oldProfile] = await Promise.all([
     getRecentAcceptedSubmissions(username, 20),
     getLeetCodeProfile(username),
     getLeetCodeFollowing(username, 30),
@@ -136,8 +136,10 @@ async function pollUser(username: string): Promise<void> {
       .where(eq(leetcodeProfilesTable.username, username))
       .limit(1)
       .then((rows) => rows[0]),
-    getLatestSubmissionId(),
   ]);
+
+  // 1. De-duplicate submissions by titleSlug early (keep most recent)
+  const submissions = deDuplicateSubmissions(rawSubmissions);
 
   // 2. Upsert shared profile cache in leetcode_profiles (one row per username)
   if (profile) {
@@ -190,7 +192,8 @@ async function pollUser(username: string): Promise<void> {
   const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
 
   // Identify "Unknown" solves if profile counts increased more than the submissions we found
-  const allNewSubmissions = [...newSubmissions];
+  const allNewSubmissions: LCSubmission[] = [];
+
   if (profile && oldProfile) {
     const diffs = [
       { key: "easySolved" as const, difficulty: "Easy" },
@@ -206,39 +209,56 @@ async function pollUser(username: string): Promise<void> {
       })),
     );
 
-    const missingByDifficulty: Record<string, number> = {};
-    let totalMissing = 0;
-
     for (const { key, difficulty } of diffs) {
-      const newVal = profile[key] ?? 0;
-      const oldVal = oldProfile[key] ?? 0;
-      const delta = newVal - oldVal;
-      const foundCount = newWithDiff.filter((s) => s.difficulty === difficulty).length;
+      const newVal = profile[key];
+      const oldVal = oldProfile[key];
 
-      if (delta > foundCount) {
-        const count = delta - foundCount;
-        missingByDifficulty[difficulty] = count;
-        totalMissing += count;
-        logger.info(
-          { username, difficulty, count },
-          "Detected unknown solves via profile count",
-        );
-      }
-    }
+      // If counts are available (not null), use them to budget how many solves we accept
+      if (newVal !== null && oldVal !== null) {
+        const delta = newVal - oldVal;
+        const matchingPublic = newWithDiff
+          .filter((s) => s.difficulty === difficulty)
+          .sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
 
-    if (totalMissing > 0) {
-      for (const [difficulty, count] of Object.entries(missingByDifficulty)) {
-        for (let i = 0; i < count; i++) {
-          const ts = Math.floor(Date.now() / 1000);
-          allNewSubmissions.push({
-            id: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
-            title: `Private ${difficulty} Problem`,
-            titleSlug: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
-            timestamp: ts.toString(),
-          });
+        if (delta > 0) {
+          // Take up to 'delta' most recent public submissions for this difficulty
+          const accepted = matchingPublic.slice(0, delta);
+          allNewSubmissions.push(...accepted);
+
+          // If delta > accepted, it means there are solves we can't see (private or hidden)
+          const unknownCount = delta - accepted.length;
+          if (unknownCount > 0) {
+            logger.info(
+              { username, difficulty, unknownCount },
+              "Detected unknown solves via profile count",
+            );
+            for (let i = 0; i < unknownCount; i++) {
+              const ts = Math.floor(Date.now() / 1000);
+              allNewSubmissions.push({
+                id: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
+                title: `Private ${difficulty} Problem`,
+                titleSlug: `private-${difficulty.toLowerCase()}-${ts}-${i}`,
+                timestamp: ts.toString(),
+              });
+            }
+          }
+        } else if (matchingPublic.length > 0) {
+          // Profile count didn't increase, but we found "new" submissions in the list.
+          // These must be resubmissions of problems solved before our history began.
+          logger.debug(
+            { username, difficulty, found: matchingPublic.length },
+            "Ignoring resubmissions as profile count did not increase",
+          );
         }
+      } else {
+        // Profile stats are hidden/null (private user), fall back to accepting all detected public solves
+        allNewSubmissions.push(...newWithDiff.filter((s) => s.difficulty === difficulty));
       }
     }
+  } else {
+    // No old profile to compare against, or user is completely new.
+    // Accept all new public submissions detected.
+    allNewSubmissions.push(...newSubmissions);
   }
 
 
@@ -345,6 +365,21 @@ async function pollUser(username: string): Promise<void> {
   );
 }
 
+/**
+ * De-duplicates a list of submissions by titleSlug, keeping the one with
+ * the highest timestamp.
+ */
+function deDuplicateSubmissions(submissions: LCSubmission[]): LCSubmission[] {
+  const map = new Map<string, LCSubmission>();
+  for (const s of submissions) {
+    const existing = map.get(s.titleSlug);
+    if (!existing || Number(s.timestamp) > Number(existing.timestamp)) {
+      map.set(s.titleSlug, s);
+    }
+  }
+  return Array.from(map.values());
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -416,8 +451,9 @@ export async function backfillUserProblems(username: string): Promise<void> {
 
   logger.info({ username, totalSolved, limit }, "Fetching full submission history");
 
-  const submissions = await getRecentAcceptedSubmissions(username, limit);
+  const rawSubmissions = await getRecentAcceptedSubmissions(username, limit);
   // Step 2 — filter out slugs already stored in the DB
+  const submissions = deDuplicateSubmissions(rawSubmissions);
   const slugs = submissions.map((s) => s.titleSlug);
   const existing =
     slugs.length > 0
