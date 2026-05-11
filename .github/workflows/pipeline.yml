@@ -36,10 +36,9 @@ jobs:
           pnpm run generate:api
           git diff --exit-code
 
-  # STEP 2: Unit Testing
   unit-test:
     name: Unit Tests
-    needs: validate # Only run if validation passes
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +52,6 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm run test:unit
 
-  # STEP 3: E2E Testing (Integration)
   e2e-test:
     name: E2E Tests
     needs: validate
@@ -69,8 +67,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --no-frozen-lockfile
 
-      - name: Start Database
-        run: docker-compose up -d postgres
+      # - name: Start Database
+      #   run: docker-compose up -d postgres
 
       - name: Run E2E
         run: pnpm run test:e2e
