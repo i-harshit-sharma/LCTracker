@@ -1,0 +1,18 @@
+name: Automated Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Trigger Deploy API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Deployment Request
+        run: |
+          curl -N -X POST "${{ secrets.DEPLOY_API_URL }}/api/admin/deploy" \
+            -H "Content-Type: application/json" \
+            -H "x-deploy-secret: ${{ secrets.DEPLOY_SECRET }}"
+          echo -e "\nDeployment request completed."

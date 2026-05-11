@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { exec, spawn } from "child_process";
+import path from "path";
 
 import { db, followsTable, leetcodeProfilesTable, eq, and, inArray } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
@@ -7,6 +9,7 @@ import { backfillUserProblems } from "../lib/poller";
 import { serializeDates } from "../lib/serialize";
 import { z } from "zod";
 import posthog from "../lib/posthog";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -162,6 +165,73 @@ router.get("/admin/export-follows", requireAuth, async (req, res): Promise<void>
     properties: {
       count: usernames.length,
     },
+  });
+});
+
+/**
+ * POST /api/admin/deploy
+ *
+ * Trigger a full deployment by running start.sh.
+ * Authenticated via x-deploy-secret header.
+ */
+router.post("/admin/deploy", async (req, res): Promise<void> => {
+  const secret = req.headers["x-deploy-secret"];
+  const deploySecret = process.env.DEPLOY_SECRET;
+
+  if (!deploySecret) {
+    res.status(500).json({ error: "DEPLOY_SECRET not configured on server" });
+    return;
+  }
+
+  if (secret !== deploySecret) {
+    res.status(401).json({ error: "Invalid deploy secret" });
+    return;
+  }
+
+  // We resolve the path to start.sh relative to this file.
+  const scriptPath = path.resolve(__dirname, "../../../../start.sh");
+
+  logger.info({ scriptPath }, "Triggering automated deployment with streaming logs");
+
+  // Set headers for streaming text
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const child = spawn("bash", [scriptPath]);
+
+  child.stdout.on("data", (data) => {
+    if (!res.writableEnded) {
+      res.write(data);
+    }
+  });
+
+  child.stderr.on("data", (data) => {
+    if (!res.writableEnded) {
+      res.write(data);
+    }
+  });
+
+  child.on("error", (err) => {
+    logger.error({ err: err.message }, "Deployment process error");
+    if (!res.writableEnded) {
+      res.write(`\n❌ Process Error: ${err.message}\n`);
+      res.end();
+    }
+  });
+
+  child.on("close", (code) => {
+    logger.info({ code }, "Deployment script closed");
+    if (!res.writableEnded) {
+      res.write(`\n🏁 Deployment script exited with code ${code}\n`);
+      res.end();
+    }
+  });
+
+  posthog.capture({
+    distinctId: "api-server",
+    event: "Admin Deployment Triggered (Streaming)",
   });
 });
 
