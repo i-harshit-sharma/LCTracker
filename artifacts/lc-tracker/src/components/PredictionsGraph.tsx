@@ -80,14 +80,35 @@ export function PredictionsGraph() {
     period: "all" 
   });
 
-  // Initialize visible users when data loads
+  // Initialize visible users when data loads (restoring from localStorage if available)
   useEffect(() => {
     if (currentLeaderboard && Array.isArray(currentLeaderboard) && !hasInitializedVisibility) {
-      const usernames = currentLeaderboard.map(u => u.leetcodeUsername);
-      setVisibleUsers(new Set(usernames));
+      const saved = localStorage.getItem("lc-tracker-graph-visibility");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setVisibleUsers(new Set(parsed));
+          } else {
+            setVisibleUsers(new Set(currentLeaderboard.map(u => u.leetcodeUsername)));
+          }
+        } catch (e) {
+          console.error("Failed to parse graph visibility settings", e);
+          setVisibleUsers(new Set(currentLeaderboard.map(u => u.leetcodeUsername)));
+        }
+      } else {
+        setVisibleUsers(new Set(currentLeaderboard.map(u => u.leetcodeUsername)));
+      }
       setHasInitializedVisibility(true);
     }
   }, [currentLeaderboard, hasInitializedVisibility]);
+
+  // Persist visible users to localStorage
+  useEffect(() => {
+    if (hasInitializedVisibility) {
+      localStorage.setItem("lc-tracker-graph-visibility", JSON.stringify(Array.from(visibleUsers)));
+    }
+  }, [visibleUsers, hasInitializedVisibility]);
 
   const toggleUserVisibility = useCallback((username: string) => {
     setVisibleUsers(prev => {
