@@ -26,7 +26,9 @@ jobs:
 
       # 1. Lint & Typecheck
       - run: pnpm run lint
-      - run: pnpm -r exec tsc --noEmit
+      - run: pnpm run typecheck:libs
+      # Now run the full typecheck
+      - run: pnpm run typecheck
 
       # 2. Contract Check
       - run: pnpm run generate:api
