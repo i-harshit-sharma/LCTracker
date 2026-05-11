@@ -72,7 +72,7 @@ export default function LandingPage() {
           Real-time LeetCode social feed
         </div>
         <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
-          Turn grinding into a
+          Turn Leetcode grinding into a
           <br />
           <span className="text-primary"> sport</span>
         </h1>

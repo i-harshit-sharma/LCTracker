@@ -109,7 +109,7 @@ export default function VerificationPage() {
         <Card className="w-full max-w-md border-border/40 shadow-2xl bg-card/50 backdrop-blur-sm relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
           <CardHeader>
-            <CardTitle className="text-2xl font-bold tracking-tight">Welcome to LeetCode Sync Hub</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">Welcome to LCTracker</CardTitle>
             <CardDescription className="text-muted-foreground">
               To get started, please enter your LeetCode username.
             </CardDescription>
