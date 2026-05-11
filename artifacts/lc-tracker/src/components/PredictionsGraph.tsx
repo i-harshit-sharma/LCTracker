@@ -20,7 +20,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, AlertTriangle, History, Info, Eye, EyeOff, CheckSquare, Square } from "lucide-react";
-import { subWeeks, startOfWeek, format } from "date-fns";
+import { subWeeks, startOfWeek, format, differenceInDays } from "date-fns";
 
 interface OvertakingEvent {
   user1: string;
@@ -35,6 +35,7 @@ interface UserStat {
   velocity: number;
   total: number;
   gap: number;
+  requiredDailyRate: number;
 }
 
 interface PredictionChallenge {
@@ -42,6 +43,7 @@ interface PredictionChallenge {
   neededVelocity: number;
   neededGrowthRate: number;
   currentVelocity: number;
+  neededDailyVelocity: number;
 }
 
 interface ProcessedPredictionData {
@@ -145,6 +147,9 @@ export function PredictionsGraph() {
       return { chartData: [], events: [], stats: [], challenge: null };
     }
 
+    const targetDate = new Date("2026-07-15");
+    const daysRemaining = Math.max(1, differenceInDays(targetDate, new Date()));
+
     // Calculate average velocity for each user across historical weeks
     const userVelocityMap = new Map<string, number>();
     
@@ -181,12 +186,18 @@ export function PredictionsGraph() {
       const growthRate = (velocity / (total || 1)) * 100;
       const gap = total - myTotal;
       
+      // Calculate daily rate to beat this specific user by July 15, 2026
+      const targetDailyVelocity = velocity / 7;
+      const projectedTargetTotal = total + (targetDailyVelocity * daysRemaining);
+      const requiredDailyRate = Math.max(0, (projectedTargetTotal - myTotal) / daysRemaining);
+      
       return {
         username: user.leetcodeUsername,
         growthRate,
         velocity,
         total,
-        gap
+        gap,
+        requiredDailyRate
       };
     }).sort((a, b) => b.growthRate - a.growthRate);
 
@@ -240,16 +251,18 @@ export function PredictionsGraph() {
       const leaderVelocity = userVelocityMap.get(leader.leetcodeUsername) || 0;
       const myTotal = currentLeaderboard.find(u => u.leetcodeUsername === myUsername)?.totalSolved || 0;
       
-      const predictedLeaderTotal = leaderTotal + (leaderVelocity * 8);
+      const predictedLeaderTotal = leaderTotal + (leaderVelocity / 7 * daysRemaining);
       const neededTotal = predictedLeaderTotal + 1;
-      const neededVelocity = (neededTotal - myTotal) / 8;
+      const neededVelocity = (neededTotal - myTotal) / (daysRemaining / 7);
       const neededGrowthRate = (neededVelocity / (myTotal || 1)) * 100;
+      const neededDailyVelocity = (neededTotal - myTotal) / daysRemaining;
 
       challenge = {
         leaderUsername: leader.leetcodeUsername,
         neededVelocity,
         neededGrowthRate,
-        currentVelocity: meStat.velocity
+        currentVelocity: meStat.velocity,
+        neededDailyVelocity
       };
     }
 
@@ -406,10 +419,10 @@ export function PredictionsGraph() {
               </div>
               <div className="hidden md:block h-10 w-px bg-border" />
               <div className="text-center">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Gap</p>
-                <p className="text-xl font-black text-orange-500">
-                  {Math.max(0, challenge.neededVelocity - challenge.currentVelocity).toFixed(1)}
-                  <span className="text-xs font-normal text-muted-foreground ml-1">to add</span>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Required Daily</p>
+                <p className="text-xl font-black text-emerald-500">
+                  {challenge.neededDailyVelocity.toFixed(2)}
+                  <span className="text-xs font-normal text-muted-foreground ml-1">/day</span>
                 </p>
               </div>
             </div>
@@ -505,6 +518,23 @@ export function PredictionsGraph() {
                       <span className="text-[10px] font-medium text-muted-foreground">
                         {stat.velocity.toFixed(1)}/wk
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-border/20">
+                      {stat.username === myUsername ? (
+                        <>
+                          <span className="text-[9px] text-primary uppercase font-bold">Current Speed</span>
+                          <span className="text-[10px] font-bold text-primary">
+                            {(stat.velocity / 7).toFixed(2)}/d
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[9px] text-emerald-500/80 uppercase font-bold">To Beat (15 July)</span>
+                          <span className="text-[10px] font-bold text-emerald-500">
+                            {stat.requiredDailyRate.toFixed(2)}/d
+                          </span>
+                        </>
+                      )}
                     </div>
                   </button>
                 );
