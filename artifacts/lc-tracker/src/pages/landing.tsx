@@ -176,6 +176,7 @@ export default function LandingPage() {
               <SiGithub className="h-4 w-4" />
               Source Code
             </a>
+            <span className="text-xs opacity-50">v{process.env.APP_VERSION}</span>
           </div>
         </div>
       </footer>
