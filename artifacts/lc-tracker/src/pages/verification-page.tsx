@@ -226,7 +226,7 @@ export default function VerificationPage() {
                 <li className="relative before:absolute before:left-[-1.25rem] before:top-[0.6rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary/40">
                   Go to your{" "}
                   <a 
-                    href={`https://leetcode.com/${prefs.leetcodeUsername}/`} 
+                    href={`https://leetcode.com/settings/profile`} 
                     target="_blank" 
                     rel="noreferrer"
                     className="text-primary hover:underline inline-flex items-center gap-1 font-medium decoration-primary/30 underline-offset-4"
@@ -235,10 +235,10 @@ export default function VerificationPage() {
                   </a>
                 </li>
                 <li className="relative before:absolute before:left-[-1.25rem] before:top-[0.6rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary/40">
-                  Edit your <strong>"About"</strong> or <strong>"Bio"</strong> section.
+                  Edit your <strong>"Readme"</strong> section.
                 </li>
                 <li className="relative before:absolute before:left-[-1.25rem] before:top-[0.6rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary/40">
-                  Paste the verification string shown above into your bio.
+                  Paste the verification string shown above into your Readme.
                 </li>
                 <li className="relative before:absolute before:left-[-1.25rem] before:top-[0.6rem] before:h-1.5 before:w-1.5 before:rounded-full before:bg-primary/40">
                   Save your profile changes on LeetCode.
