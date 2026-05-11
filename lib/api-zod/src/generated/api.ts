@@ -165,6 +165,7 @@ export const GetPreferencesResponse = zod.object({
   leetcodeUsername: zod.string().nullish(),
   isVerified: zod.boolean().optional(),
   verificationToken: zod.string().nullish(),
+  onboardingCompleted: zod.boolean(),
 });
 
 /**
@@ -175,6 +176,7 @@ export const UpdatePreferencesBody = zod.object({
   digestHour: zod.number().optional(),
   digestMinute: zod.number().optional(),
   leetcodeUsername: zod.string().nullish(),
+  onboardingCompleted: zod.boolean().optional(),
 });
 
 export const UpdatePreferencesResponse = zod.object({
@@ -187,6 +189,7 @@ export const UpdatePreferencesResponse = zod.object({
   leetcodeUsername: zod.string().nullish(),
   isVerified: zod.boolean().optional(),
   verificationToken: zod.string().nullish(),
+  onboardingCompleted: zod.boolean(),
 });
 
 /**
@@ -202,6 +205,7 @@ export const VerifyLeetcodeUsernameResponse = zod.object({
   leetcodeUsername: zod.string().nullish(),
   isVerified: zod.boolean().optional(),
   verificationToken: zod.string().nullish(),
+  onboardingCompleted: zod.boolean(),
 });
 
 /**

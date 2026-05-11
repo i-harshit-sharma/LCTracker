@@ -121,7 +121,7 @@ export default function VerificationPage() {
               <div className="space-y-2">
                 <Label htmlFor="username">LeetCode Username</Label>
                 <Input
-                  id="username"
+                  id="tour-username-input"
                   placeholder="e.g. bobby_leetcode"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -138,6 +138,7 @@ export default function VerificationPage() {
             </CardContent>
             <CardFooter>
               <Button 
+                id="tour-save-username"
                 className="w-full font-semibold shadow-lg shadow-primary/20 h-11" 
                 onClick={handleUpdateUsername}
                 disabled={updatePrefs.isPending || !username.trim()}
@@ -219,7 +220,10 @@ export default function VerificationPage() {
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-3 shadow-inner">
               <Label className="text-sm font-medium text-primary uppercase tracking-wider">Verification String</Label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-background/80 px-4 py-3 rounded-lg border font-mono text-sm break-all shadow-sm select-all">
+                <code 
+                  id="tour-verification-token"
+                  className="flex-1 bg-background/80 px-4 py-3 rounded-lg border font-mono text-sm break-all shadow-sm select-all"
+                >
                   {prefs.verificationToken}
                 </code>
                 <Button variant="outline" size="icon" onClick={copyToken} className="shrink-0 hover:bg-primary/10 border-primary/20">
@@ -263,6 +267,7 @@ export default function VerificationPage() {
         </CardContent>
         <CardFooter>
           <Button 
+            id="tour-verify-button"
             className="w-full text-lg font-bold h-12 shadow-xl shadow-primary/25 transition-all hover:scale-[1.01] active:scale-[0.99] bg-primary hover:bg-primary/90" 
             onClick={handleVerify}
             disabled={verify.isPending}

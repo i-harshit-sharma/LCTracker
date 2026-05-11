@@ -34,6 +34,9 @@ export const userPreferencesTable = pgTable("user_preferences", {
   /** Unique token user must add to their LeetCode bio for verification. */
   verificationToken: text("verification_token"),
 
+  /** Whether the user has completed the onboarding product tour. */
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

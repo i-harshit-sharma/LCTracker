@@ -55,6 +55,7 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
+                id={label === "Following" ? "tour-nav-follows" : undefined}
                 data-testid={`nav-link-${label.toLowerCase()}`}
                 className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   active

@@ -26,7 +26,7 @@ router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
   // Upsert: insert defaults if absent, return existing row untouched if present
   const [prefs] = await db
     .insert(userPreferencesTable)
-    .values({ userId, digestHour: 20, digestMinute: 0, emailEnabled: true })
+    .values({ userId, digestHour: 20, digestMinute: 0, emailEnabled: true, onboardingCompleted: false })
     .onConflictDoUpdate({
       target: userPreferencesTable.userId,
       // Set to itself — effectively a no-op that lets returning() work
@@ -34,6 +34,7 @@ router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
         digestHour:   userPreferencesTable.digestHour,
         digestMinute: userPreferencesTable.digestMinute,
         emailEnabled: userPreferencesTable.emailEnabled,
+        onboardingCompleted: userPreferencesTable.onboardingCompleted,
       },
     })
     .returning();
@@ -67,12 +68,13 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { digestHour, digestMinute, emailEnabled, leetcodeUsername } = parsed.data;
+  const { digestHour, digestMinute, emailEnabled, leetcodeUsername, onboardingCompleted } = parsed.data;
 
   const patch: any = { updatedAt: new Date() };
   if (digestHour   !== undefined) patch.digestHour   = digestHour;
   if (digestMinute !== undefined) patch.digestMinute = digestMinute;
   if (emailEnabled !== undefined) patch.emailEnabled = emailEnabled;
+  if (onboardingCompleted !== undefined) patch.onboardingCompleted = onboardingCompleted;
   if (leetcodeUsername !== undefined) {
     const newUsername = leetcodeUsername ? leetcodeUsername.trim().toLowerCase() : null;
     
@@ -97,6 +99,7 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
       digestHour:   digestHour   ?? 20,
       digestMinute: digestMinute ?? 0,
       emailEnabled: emailEnabled ?? true,
+      onboardingCompleted: onboardingCompleted ?? false,
       leetcodeUsername: leetcodeUsername ? leetcodeUsername.trim().toLowerCase() : null,
       isVerified: false,
       verificationToken: leetcodeUsername ? generateVerificationToken() : null,
@@ -117,6 +120,7 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
       digestHour: updated.digestHour,
       digestMinute: updated.digestMinute,
       leetcodeUsername: updated.leetcodeUsername,
+      onboardingCompleted: updated.onboardingCompleted,
     },
   });
 });
