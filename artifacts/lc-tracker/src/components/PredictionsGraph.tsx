@@ -33,6 +33,8 @@ interface UserStat {
   username: string;
   growthRate: number;
   velocity: number;
+  total: number;
+  gap: number;
 }
 
 interface PredictionChallenge {
@@ -169,15 +171,22 @@ export function PredictionsGraph() {
       return { chartData: [], events: [], stats: [], challenge: null };
     }
 
-    // Calculate stats like growth rate %
+    // Get my current total solved to calculate gaps
+    const myTotal = currentLeaderboard.find(u => u.leetcodeUsername === myUsername)?.totalSolved || 0;
+
+    // Calculate stats like growth rate % and gap from me
     const stats = plottedUsers.map(user => {
-      const total = user.totalSolved || 1; // avoid div by zero
+      const total = user.totalSolved || 0;
       const velocity = userVelocityMap.get(user.leetcodeUsername) || 0;
-      const growthRate = (velocity / total) * 100;
+      const growthRate = (velocity / (total || 1)) * 100;
+      const gap = total - myTotal;
+      
       return {
         username: user.leetcodeUsername,
         growthRate,
-        velocity
+        velocity,
+        total,
+        gap
       };
     }).sort((a, b) => b.growthRate - a.growthRate);
 
@@ -248,6 +257,51 @@ export function PredictionsGraph() {
   }, [currentLeaderboard, historicalQueries, historicalWeeks, myUsername]);
 
   const { chartData: predictionData, events: overtakingEvents, stats: userStats, challenge } = processedData;
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const myItem = payload.find((p: any) => p.dataKey === myUsername);
+      const myValue = myItem ? myItem.value : 0;
+      
+      // Sort payload by value descending
+      const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
+
+      return (
+        <div className="bg-slate-950/95 border border-slate-800 rounded-xl p-3 shadow-2xl backdrop-blur-sm min-w-[220px]">
+          <p className="text-[12px] font-bold mb-3 text-slate-400 flex items-center justify-between border-b border-slate-800 pb-2">
+            <span>{label}</span>
+            <span className="text-[10px] font-normal text-slate-500">Solves & Gap</span>
+          </p>
+          <div className="space-y-2">
+            {sortedPayload.map((entry: any, index: number) => {
+              const gap = entry.value - myValue;
+              const isMe = entry.dataKey === myUsername;
+              return (
+                <div key={index} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                    <span className={`text-[12px] truncate ${isMe ? "font-black text-primary" : "text-slate-200"}`}>
+                      @{entry.dataKey}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[12px] font-mono font-bold text-white">{entry.value.toLocaleString()}</span>
+                    {!isMe && (
+                      <span className={`text-[10px] font-bold min-w-[40px] text-right ${gap > 0 ? "text-orange-400" : "text-blue-400"}`}>
+                        {gap > 0 ? `+${gap}` : gap}
+                      </span>
+                    )}
+                    {isMe && <span className="text-[10px] font-bold text-primary min-w-[40px] text-right">YOU</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (isLoading) {
     return (
@@ -380,11 +434,7 @@ export function PredictionsGraph() {
                 axisLine={false}
                 tickFormatter={(val) => val.toLocaleString()}
               />
-              <Tooltip 
-                contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b", borderRadius: "8px" }}
-                itemStyle={{ fontSize: "12px" }}
-                labelStyle={{ fontSize: "12px", fontWeight: "bold", marginBottom: "4px" }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36}/>
               {Object.keys(predictionData[0])
                 .filter(key => key !== "week" && visibleUsers.has(key))
@@ -442,6 +492,12 @@ export function PredictionsGraph() {
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold">Growth</span>
                       <span className={`text-xs font-mono font-bold ${isVisible ? "text-emerald-500" : "text-muted-foreground"}`}>
                         +{stat.growthRate.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Gap</span>
+                      <span className={`text-[10px] font-bold ${stat.gap > 0 ? "text-orange-500" : stat.gap < 0 ? "text-blue-500" : "text-muted-foreground"}`}>
+                        {stat.gap === 0 ? "You" : `${stat.gap > 0 ? "+" : ""}${stat.gap}`}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
