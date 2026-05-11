@@ -7,43 +7,78 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Run Tests
+  # STEP 1: Setup & Validation (Lint, Types, Contract)
+  validate:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: 10
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"
-
       - run: pnpm install --no-frozen-lockfile
 
-      # 1. Lint & Typecheck
-      - run: pnpm run lint
-      - run: pnpm run typecheck:libs
-      # Now run the full typecheck
-      - run: pnpm run typecheck
+      - name: Linting
+        run: pnpm run lint
 
-      # 2. Contract Check
-      - run: pnpm run generate:api
-      - run: git diff --exit-code
+      - name: Build Libraries (Dependencies)
+        run: pnpm run typecheck:libs
 
-      # 3. Unit Tests
+      - name: Full Typecheck
+        run: pnpm run typecheck
+
+      - name: Contract Check (API Generation)
+        run: |
+          pnpm run generate:api
+          git diff --exit-code
+
+  # STEP 2: Unit Testing
+  unit-test:
+    name: Unit Tests
+    needs: validate # Only run if validation passes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+      - run: pnpm install --no-frozen-lockfile
       - run: pnpm run test:unit
 
-      # 4. E2E Tests
-      - run: docker-compose up -d postgres
-      - run: pnpm run test:e2e
+  # STEP 3: E2E Testing (Integration)
+  e2e-test:
+    name: E2E Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+      - run: pnpm install --no-frozen-lockfile
 
+      - name: Start Database
+        run: docker-compose up -d postgres
+
+      - name: Run E2E
+        run: pnpm run test:e2e
+
+  # STEP 4: Deployment
   deploy:
     name: Deploy to Production
-    needs: test
+    needs: [unit-test, e2e-test] # Must pass all tests first
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
@@ -58,7 +93,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # Call the shell script directly to skip pnpm install overhead
           bash ./scripts/version-bump.sh minor --push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,4 +102,3 @@ jobs:
           curl -N -X POST "${{ secrets.DEPLOY_API_URL }}/api/admin/deploy" \
             -H "Content-Type: application/json" \
             -H "x-deploy-secret: ${{ secrets.DEPLOY_SECRET }}"
-          echo -e "\nDeployment request completed."
