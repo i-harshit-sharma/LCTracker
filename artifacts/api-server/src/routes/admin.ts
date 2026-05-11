@@ -11,6 +11,8 @@ import { z } from "zod";
 import posthog from "../lib/posthog";
 import { logger } from "../lib/logger";
 
+import fs from "fs";
+
 const router: IRouter = Router();
 
 const BulkFollowBody = z.object({
@@ -188,10 +190,25 @@ router.post("/admin/deploy", async (req, res): Promise<void> => {
     return;
   }
 
-  // We resolve the path to start.sh relative to this file.
-  const scriptPath = path.resolve(__dirname, "../../../start.sh");
+  // Resolve the root directory by looking for start.sh
+  let rootDir = __dirname;
+  // We go up at most 5 levels to find start.sh (root)
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(rootDir, "start.sh"))) {
+      break;
+    }
+    rootDir = path.dirname(rootDir);
+  }
 
-  logger.info({ scriptPath }, "Triggering automated deployment with streaming logs");
+  const scriptPath = path.resolve(rootDir, "start.sh");
+
+  if (!fs.existsSync(scriptPath)) {
+    logger.error({ rootDir, __dirname }, "Could not find start.sh for deployment");
+    res.status(500).json({ error: "Deployment script (start.sh) not found in root" });
+    return;
+  }
+
+  logger.info({ scriptPath, rootDir }, "Triggering automated deployment from root");
 
   // Set headers for streaming text
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -199,7 +216,11 @@ router.post("/admin/deploy", async (req, res): Promise<void> => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const child = spawn("bash", [scriptPath]);
+  // Spawn bash with rootDir as the working directory
+  const child = spawn("bash", [scriptPath], {
+    cwd: rootDir,
+    env: { ...process.env, NODE_ENV: "production" }
+  });
 
   child.stdout.on("data", (data) => {
     if (!res.writableEnded) {
@@ -224,7 +245,11 @@ router.post("/admin/deploy", async (req, res): Promise<void> => {
   child.on("close", (code) => {
     logger.info({ code }, "Deployment script closed");
     if (!res.writableEnded) {
-      res.write(`\n🏁 Deployment script exited with code ${code}\n`);
+      if (code === 0) {
+        res.write(`\n✅ Deployment successful!\n`);
+      } else {
+        res.write(`\n❌ Deployment failed with code ${code}\n`);
+      }
       res.end();
     }
   });
