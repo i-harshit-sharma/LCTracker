@@ -61,6 +61,15 @@ export default function LandingPage() {
                 Get started
               </Button>
             </Link>
+            <a 
+              href="https://github.com/i-harshit-sharma/LCTracker" 
+              target="_blank" 
+              rel="noreferrer"
+              className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="GitHub Repository"
+            >
+              <SiGithub className="h-5 w-5" />
+            </a>
           </div>
         </div>
       </header>
@@ -151,10 +160,23 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-6 px-4 text-center text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-2">
-          <SiLeetcode className="h-4 w-4 text-primary" />
-          <span>LCTracker — not affiliated with LeetCode</span>
+      <footer className="border-t border-border py-8 px-4 text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center gap-2">
+            <SiLeetcode className="h-4 w-4 text-primary" />
+            <span>LCTracker — not affiliated with LeetCode</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <a 
+              href="https://github.com/i-harshit-sharma/LCTracker" 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
+            >
+              <SiGithub className="h-4 w-4" />
+              Source Code
+            </a>
+          </div>
         </div>
       </footer>
     </div>
