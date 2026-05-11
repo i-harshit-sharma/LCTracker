@@ -30,7 +30,7 @@ export function OnboardingTour() {
         </div>
       ),
       placement: "center",
-      disableBeacon: true,
+      skipBeacon: true,
     });
 
     if (!prefs?.leetcodeUsername) {
