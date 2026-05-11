@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Copy, ExternalLink, Loader2, Lock, MoreHorizontal, UserMinus } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, ExternalLink, Loader2, Lock } from "lucide-react";
+import { Navbar } from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -105,74 +106,84 @@ export default function VerificationPage() {
   // Step 1: Add Username
   if (!prefs?.leetcodeUsername) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background p-4">
-        <Card className="w-full max-w-md border-border/40 shadow-2xl bg-card/50 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold tracking-tight">Welcome to LCTracker</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              To get started, please enter your LeetCode username.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">LeetCode Username</Label>
-              <Input
-                id="username"
-                placeholder="e.g. bobby_leetcode"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="bg-background/50 h-11"
-              />
-            </div>
-            <Alert variant="default" className="bg-primary/5 border-primary/20 text-primary-foreground/90">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle className="text-primary font-semibold">Public Profile Required</AlertTitle>
-              <AlertDescription className="text-xs text-muted-foreground">
-                Your LeetCode profile must be public so we can verify ownership and track your progress.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              className="w-full font-semibold shadow-lg shadow-primary/20 h-11" 
-              onClick={handleUpdateUsername}
-              disabled={updatePrefs.isPending || !username.trim()}
-            >
-              {updatePrefs.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Username
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-3.5rem)] p-4">
+          <Card className="w-full max-w-md border-border/40 shadow-2xl bg-card/50 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold tracking-tight">Welcome to LCTracker</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                To get started, please enter your LeetCode username.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">LeetCode Username</Label>
+                <Input
+                  id="username"
+                  placeholder="e.g. bobby_leetcode"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="bg-background/50 h-11"
+                />
+              </div>
+              <Alert variant="default" className="bg-primary/5 border-primary/20 text-primary-foreground/90">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle className="text-primary font-semibold">Public Profile Required</AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground">
+                  Your LeetCode profile must be public so we can verify ownership and track your progress.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full font-semibold shadow-lg shadow-primary/20 h-11" 
+                onClick={handleUpdateUsername}
+                disabled={updatePrefs.isPending || !username.trim()}
+              >
+                {updatePrefs.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Username
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
     );
   }
 
   // Step 2: Verify Ownership
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-lg border-border/40 shadow-2xl bg-card/50 backdrop-blur-sm relative">
-        <div className="absolute top-4 right-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Settings</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onSelect={() => setIsAlertOpen(true)}
-                className="text-destructive focus:text-destructive cursor-pointer"
-              >
-                <UserMinus className="mr-2 h-4 w-4" />
-                Change Username
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="flex items-center justify-center min-h-[calc(100vh-3.5rem)] p-4">
+        <Card className="w-full max-w-lg border-border/40 shadow-2xl bg-card/50 backdrop-blur-sm relative">
+          {/* Settings / Reset Username Button */}
+          <div className="absolute top-4 right-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted">
+                  <div className="flex flex-col gap-0.5 items-center">
+                    <div className="w-1 h-1 rounded-full bg-foreground/50" />
+                    <div className="w-1 h-1 rounded-full bg-foreground/50" />
+                    <div className="w-1 h-1 rounded-full bg-foreground/50" />
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Settings</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onSelect={() => setIsAlertOpen(true)}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <UserMinus className="mr-2 h-4 w-4" />
+                  Change Username
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+            <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -265,6 +276,7 @@ export default function VerificationPage() {
           </Button>
         </CardFooter>
       </Card>
+      </div>
     </div>
   );
 }
