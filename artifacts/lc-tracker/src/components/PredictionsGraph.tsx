@@ -22,6 +22,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, AlertTriangle, History, Info, Eye, EyeOff, CheckSquare, Square } from "lucide-react";
 import { subWeeks, startOfWeek, format } from "date-fns";
 
+interface OvertakingEvent {
+  user1: string;
+  user2: string;
+  week: number;
+  total: number;
+}
+
+interface UserStat {
+  username: string;
+  growthRate: number;
+  velocity: number;
+}
+
+interface PredictionChallenge {
+  leaderUsername: string;
+  neededVelocity: number;
+  neededGrowthRate: number;
+  currentVelocity: number;
+}
+
+interface ProcessedPredictionData {
+  chartData: any[];
+  events: OvertakingEvent[];
+  stats: UserStat[];
+  challenge: PredictionChallenge | null;
+}
+
 export function PredictionsGraph() {
   const { data: prefs } = useGetPreferences();
   const myUsername = prefs?.leetcodeUsername;
@@ -87,9 +114,13 @@ export function PredictionsGraph() {
   const isLoading = isCurrentLoading || historicalQueries.some(q => q.isLoading);
   const isError = currentError || historicalQueries.some(q => q.isError);
 
-  const processedData = useMemo(() => {
-    if (!currentLeaderboard || !Array.isArray(currentLeaderboard)) return { chartData: [], events: [], stats: [] };
-    if (historicalQueries.some(q => !q.data)) return { chartData: [], events: [], stats: [] };
+  const processedData = useMemo((): ProcessedPredictionData => {
+    if (!currentLeaderboard || !Array.isArray(currentLeaderboard)) {
+      return { chartData: [], events: [], stats: [], challenge: null };
+    }
+    if (historicalQueries.some(q => !q.data)) {
+      return { chartData: [], events: [], stats: [], challenge: null };
+    }
 
     // Calculate average velocity for each user across historical weeks
     const userVelocityMap = new Map<string, number>();
@@ -113,7 +144,9 @@ export function PredictionsGraph() {
     const plottedUsers = [...currentLeaderboard]
       .filter(u => u.totalSolved !== null && u.totalSolved !== undefined);
 
-    if (plottedUsers.length === 0) return { chartData: [], events: [], stats: [] };
+    if (plottedUsers.length === 0) {
+      return { chartData: [], events: [], stats: [], challenge: null };
+    }
 
     // Calculate stats like growth rate %
     const stats = plottedUsers.map(user => {
@@ -141,7 +174,7 @@ export function PredictionsGraph() {
     }
 
     // Calculate overtaking events for all plotted users
-    const events: { user1: string, user2: string, week: number, total: number }[] = [];
+    const events: OvertakingEvent[] = [];
     for (let i = 0; i < plottedUsers.length; i++) {
       for (let j = i + 1; j < plottedUsers.length; j++) {
         const u1 = plottedUsers[i];
