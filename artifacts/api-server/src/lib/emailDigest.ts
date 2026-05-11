@@ -225,14 +225,14 @@ function buildDigestHtml(
 </html>`;
 }
 
-function difficultyColor(difficulty: string): string {
+export function difficultyColor(difficulty: string): string {
   if (difficulty === "Easy") return "#22c55e";
   if (difficulty === "Medium") return "#f97316";
   if (difficulty === "Hard") return "#ef4444";
   return "#6b7280";
 }
 
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
