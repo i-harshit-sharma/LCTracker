@@ -138,6 +138,7 @@ function VerificationGate({ children }: { children: React.ReactNode }) {
 }
 
 import { PostHogIdentifier } from "@/components/PostHogIdentifier";
+import { ReportIssueButton } from "@/components/ReportIssueButton";
 
 function Router() {
   const [, setLocation] = useLocation();
@@ -151,6 +152,7 @@ function Router() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <PostHogIdentifier />
+      <ReportIssueButton />
       <ClerkQueryClientCacheInvalidator />
       <Switch>
         <Route path="/" component={HomeRedirect} />
