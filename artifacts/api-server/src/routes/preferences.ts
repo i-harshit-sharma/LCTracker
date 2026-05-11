@@ -179,12 +179,10 @@ router.post(
     }
 
     if (profile.isPrivate) {
-      res
-        .status(400)
-        .json({
-          error:
-            "Your LeetCode profile is private. Please make it public to verify.",
-        });
+      res.status(400).json({
+        error:
+          "Your LeetCode profile is private. Please make it public to verify.",
+      });
       return;
     }
 
