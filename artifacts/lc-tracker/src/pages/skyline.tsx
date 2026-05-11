@@ -1,4 +1,4 @@
-import { useGetPreferences, useGetProfileHeatmap, useGetLeaderboard } from "@workspace/api-client-react";
+import { useGetPreferences, useGetProfileHeatmap, useGetLeaderboard, getGetProfileHeatmapQueryKey, getGetLeaderboardQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "@/components/Navbar";
 import { ContributionCity } from "@/components/ContributionCity";
 import { CommunityCity } from "@/components/CommunityCity";
@@ -16,6 +16,7 @@ export default function SkylinePage() {
   const { data: heatmapData, isLoading: isLoadingHeatmap } = useGetProfileHeatmap(username!, {
     query: {
       enabled: !!username && activeTab === "personal",
+      queryKey: getGetProfileHeatmapQueryKey(username!),
     },
   });
 
@@ -25,6 +26,7 @@ export default function SkylinePage() {
   }, {
     query: {
       enabled: activeTab === "community",
+      queryKey: getGetLeaderboardQueryKey({ scope: "global", period: "all" }),
     }
   });
 

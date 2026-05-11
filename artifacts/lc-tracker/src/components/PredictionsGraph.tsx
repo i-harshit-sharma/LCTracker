@@ -52,8 +52,8 @@ export function PredictionsGraph() {
   const isError = currentError || historicalQueries.some(q => q.isError);
 
   const processedData = useMemo(() => {
-    if (!currentLeaderboard || !Array.isArray(currentLeaderboard)) return { chartData: [], events: [] };
-    if (historicalQueries.some(q => !q.data)) return { chartData: [], events: [] };
+    if (!currentLeaderboard || !Array.isArray(currentLeaderboard)) return { chartData: [], events: [], stats: [] };
+    if (historicalQueries.some(q => !q.data)) return { chartData: [], events: [], stats: [] };
 
     // Calculate average velocity for each user across historical weeks
     const userVelocityMap = new Map<string, number>();
