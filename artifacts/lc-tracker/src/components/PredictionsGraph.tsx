@@ -36,6 +36,7 @@ interface UserStat {
   total: number;
   gap: number;
   requiredDailyRate: number;
+  overtakeDate: string | null;
 }
 
 interface PredictionChallenge {
@@ -188,8 +189,20 @@ export function PredictionsGraph() {
       
       // Calculate daily rate to beat this specific user by July 15, 2026
       const targetDailyVelocity = velocity / 7;
+      const myDailyVelocity = (userVelocityMap.get(myUsername || "") || 0) / 7;
       const projectedTargetTotal = total + (targetDailyVelocity * daysRemaining);
       const requiredDailyRate = Math.max(0, (projectedTargetTotal - myTotal) / daysRemaining);
+
+      // Calculate overtake date if current speed is higher
+      let overtakeDate = null;
+      if (myDailyVelocity > targetDailyVelocity && gap > 0) {
+        const daysToOvertake = gap / (myDailyVelocity - targetDailyVelocity);
+        if (daysToOvertake <= daysRemaining) {
+          const date = new Date();
+          date.setDate(date.getDate() + Math.ceil(daysToOvertake));
+          overtakeDate = format(date, "MMM d, yyyy");
+        }
+      }
       
       return {
         username: user.leetcodeUsername,
@@ -197,7 +210,8 @@ export function PredictionsGraph() {
         velocity,
         total,
         gap,
-        requiredDailyRate
+        requiredDailyRate,
+        overtakeDate
       };
     }).sort((a, b) => b.growthRate - a.growthRate);
 
@@ -525,6 +539,13 @@ export function PredictionsGraph() {
                           <span className="text-[9px] text-primary uppercase font-bold">Current Speed</span>
                           <span className="text-[10px] font-bold text-primary">
                             {(stat.velocity / 7).toFixed(2)}/d
+                          </span>
+                        </>
+                      ) : stat.overtakeDate ? (
+                        <>
+                          <span className="text-[9px] text-blue-400 uppercase font-bold">Overtake By</span>
+                          <span className="text-[10px] font-bold text-blue-400">
+                            {stat.overtakeDate}
                           </span>
                         </>
                       ) : (
