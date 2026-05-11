@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { 
   LineChart, 
   Line, 
@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   useGetLeaderboard, 
   getGetLeaderboardQueryOptions,
@@ -17,12 +19,15 @@ import {
 } from "@workspace/api-client-react";
 import { useQueries } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, AlertTriangle, History, Info } from "lucide-react";
+import { TrendingUp, AlertTriangle, History, Info, Eye, EyeOff, CheckSquare, Square } from "lucide-react";
 import { subWeeks, startOfWeek, format } from "date-fns";
 
 export function PredictionsGraph() {
   const { data: prefs } = useGetPreferences();
   const myUsername = prefs?.leetcodeUsername;
+
+  const [visibleUsers, setVisibleUsers] = useState<Set<string>>(new Set());
+  const [hasInitializedVisibility, setHasInitializedVisibility] = useState(false);
 
   // Generate keys for the last 3 weeks to calculate a moving average velocity
   const historicalWeeks = useMemo(() => {
@@ -47,6 +52,37 @@ export function PredictionsGraph() {
     scope: "following", 
     period: "all" 
   });
+
+  // Initialize visible users when data loads
+  useEffect(() => {
+    if (currentLeaderboard && Array.isArray(currentLeaderboard) && !hasInitializedVisibility) {
+      const usernames = currentLeaderboard.map(u => u.leetcodeUsername);
+      setVisibleUsers(new Set(usernames));
+      setHasInitializedVisibility(true);
+    }
+  }, [currentLeaderboard, hasInitializedVisibility]);
+
+  const toggleUserVisibility = useCallback((username: string) => {
+    setVisibleUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
+  }, []);
+
+  const showAllUsers = useCallback(() => {
+    if (currentLeaderboard && Array.isArray(currentLeaderboard)) {
+      setVisibleUsers(new Set(currentLeaderboard.map(u => u.leetcodeUsername)));
+    }
+  }, [currentLeaderboard]);
+
+  const hideAllUsers = useCallback(() => {
+    setVisibleUsers(new Set());
+  }, []);
 
   const isLoading = isCurrentLoading || historicalQueries.some(q => q.isLoading);
   const isError = currentError || historicalQueries.some(q => q.isError);
@@ -206,15 +242,37 @@ export function PredictionsGraph() {
 
   return (
     <Card className="mt-8 overflow-hidden">
-      <CardHeader className="border-b bg-muted/20">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          Growth & Overtaking Predictions
-        </CardTitle>
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <History className="h-3 w-3" />
-          Linear projections based on 3-week moving average velocity
-        </p>
+      <CardHeader className="border-b bg-muted/20 flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Growth & Overtaking Predictions
+          </CardTitle>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+            <History className="h-3 w-3" />
+            Linear projections based on 3-week moving average velocity
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-[10px] gap-1.5" 
+            onClick={showAllUsers}
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
+            Show All
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-[10px] gap-1.5" 
+            onClick={hideAllUsers}
+          >
+            <Square className="h-3.5 w-3.5" />
+            Hide All
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="pt-6">
         {challenge && (
@@ -275,18 +333,22 @@ export function PredictionsGraph() {
               />
               <Legend verticalAlign="top" height={36}/>
               {Object.keys(predictionData[0])
-                .filter(key => key !== "week")
-                .map((username, index) => (
-                  <Line
-                    key={username}
-                    type="monotone"
-                    dataKey={username}
-                    stroke={colors[index % colors.length]}
-                    strokeWidth={username === myUsername ? 4 : 2}
-                    dot={username === myUsername ? { r: 6 } : { r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                  />
-                ))}
+                .filter(key => key !== "week" && visibleUsers.has(key))
+                .map((username) => {
+                  const allUsernames = Object.keys(predictionData[0]).filter(k => k !== "week");
+                  const originalIndex = allUsernames.indexOf(username);
+                  return (
+                    <Line
+                      key={username}
+                      type="monotone"
+                      dataKey={username}
+                      stroke={colors[originalIndex % colors.length]}
+                      strokeWidth={username === myUsername ? 4 : 2}
+                      dot={username === myUsername ? { r: 6 } : { r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                    />
+                  );
+                })}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -298,60 +360,75 @@ export function PredictionsGraph() {
               Velocity & Growth Rate
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {userStats.map((stat, i) => (
-                <div 
-                  key={stat.username} 
-                  className={`p-3 rounded-lg border flex flex-col gap-1 transition-colors ${
-                    stat.username === myUsername 
-                      ? "bg-primary/10 border-primary/30 ring-1 ring-primary/20" 
-                      : "bg-muted/30 border-border/50 hover:bg-muted/50"
-                  }`}
-                >
-                  <span className={`text-xs font-bold truncate ${stat.username === myUsername ? "text-primary" : "text-foreground"}`}>
-                    @{stat.username}
-                  </span>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Growth</span>
-                    <span className="text-xs font-mono font-bold text-emerald-500">
-                      +{stat.growthRate.toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Speed</span>
-                    <span className="text-[10px] font-medium">
-                      {stat.velocity.toFixed(1)}/wk
-                    </span>
-                  </div>
-                </div>
-              ))}
+              {userStats.map((stat, i) => {
+                const isVisible = visibleUsers.has(stat.username);
+                return (
+                  <button 
+                    key={stat.username} 
+                    onClick={() => toggleUserVisibility(stat.username)}
+                    className={`p-3 rounded-lg border flex flex-col gap-1 transition-all text-left group ${
+                      !isVisible 
+                        ? "bg-muted/10 border-border/20 opacity-50 grayscale hover:grayscale-0 hover:opacity-80" 
+                        : stat.username === myUsername 
+                          ? "bg-primary/10 border-primary/30 ring-1 ring-primary/20 shadow-sm" 
+                          : "bg-muted/30 border-border/50 hover:bg-muted/50 hover:border-border shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-xs font-bold truncate ${isVisible && stat.username === myUsername ? "text-primary" : "text-foreground"}`}>
+                        @{stat.username}
+                      </span>
+                      {isVisible ? (
+                        <Eye className="h-3 w-3 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                      ) : (
+                        <EyeOff className="h-3 w-3 text-muted-foreground/30" />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Growth</span>
+                      <span className={`text-xs font-mono font-bold ${isVisible ? "text-emerald-500" : "text-muted-foreground"}`}>
+                        +{stat.growthRate.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Speed</span>
+                      <span className="text-[10px] font-medium text-muted-foreground">
+                        {stat.velocity.toFixed(1)}/wk
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {overtakingEvents.length > 0 && (
+        {overtakingEvents.filter(e => visibleUsers.has(e.user1) && visibleUsers.has(e.user2)).length > 0 && (
           <div className="mt-8 space-y-3">
             <h4 className="text-sm font-semibold flex items-center gap-2 px-1">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
               Overtaking Alerts
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {overtakingEvents.map((event, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 text-sm">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-foreground">
-                      <span className="text-primary">@{event.user1}</span> will overtake <span className="text-blue-400">@{event.user2}</span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Around Week {event.week.toFixed(1)}
-                    </span>
+              {overtakingEvents
+                .filter(e => visibleUsers.has(e.user1) && visibleUsers.has(e.user2))
+                .map((event, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 text-sm">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">
+                        <span className="text-primary">@{event.user1}</span> will overtake <span className="text-blue-400">@{event.user2}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Around Week {event.week.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                        Est. {Math.round(event.total)} solves
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                      Est. {Math.round(event.total)} solves
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         )}
