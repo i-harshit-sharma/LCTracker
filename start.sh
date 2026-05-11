@@ -35,3 +35,4 @@ echo "🌐 Reloading Caddy..."
 caddy reload --config Caddyfile
 
 echo "✅ Deployment successful! App is now up to date."
+echo "📄 Last commit: $(git log -1 --pretty=format:"%h - %s (%an)")"
