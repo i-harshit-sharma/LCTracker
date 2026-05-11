@@ -20,7 +20,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, AlertTriangle, History, Info, Eye, EyeOff, CheckSquare, Square } from "lucide-react";
-import { subWeeks, startOfWeek, format, differenceInDays } from "date-fns";
+import { subWeeks, startOfWeek, format, differenceInDays, addWeeks } from "date-fns";
 
 interface OvertakingEvent {
   user1: string;
@@ -216,10 +216,15 @@ export function PredictionsGraph() {
     }).sort((a, b) => b.growthRate - a.growthRate);
 
     // Generate chart data
-    const weeks = 8;
+    const totalWeeks = 8;
     const chartData = [];
-    for (let w = 0; w <= weeks; w++) {
-      const dataPoint: any = { week: w === 0 ? "Now" : `Week ${w}` };
+    const now = new Date();
+    for (let w = 0; w <= totalWeeks; w++) {
+      const date = addWeeks(now, w);
+      const dataPoint: any = { 
+        week: w === 0 ? "Now" : format(date, "MMM d"),
+        rawDate: date,
+      };
       plottedUsers.forEach(user => {
         const currentTotal = user.totalSolved || 0;
         const velocity = userVelocityMap.get(user.leetcodeUsername) || 0;
@@ -245,9 +250,12 @@ export function PredictionsGraph() {
         const W = (T2 - T1) / (V1 - V2);
         
         if (W > 0 && W <= 8) {
+          // Identify who is overtaking whom: the one with higher velocity was behind
+          const user1IsOvertaker = V1 > V2;
+          
           events.push({
-            user1: u1.leetcodeUsername,
-            user2: u2.leetcodeUsername,
+            user1: user1IsOvertaker ? u1.leetcodeUsername : u2.leetcodeUsername,
+            user2: user1IsOvertaker ? u2.leetcodeUsername : u1.leetcodeUsername,
             week: W,
             total: T1 + V1 * W
           });
@@ -580,7 +588,7 @@ export function PredictionsGraph() {
                         <span className="text-primary">@{event.user1}</span> will overtake <span className="text-blue-400">@{event.user2}</span>
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Around Week {event.week.toFixed(1)}
+                        Estimated around {format(addWeeks(new Date(), event.week), "MMMM d, yyyy")}
                       </span>
                     </div>
                     <div className="text-right">
