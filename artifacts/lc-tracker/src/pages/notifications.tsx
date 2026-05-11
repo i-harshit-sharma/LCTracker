@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { Bell, BellOff, ExternalLink, CheckCheck, Mail, Clock, Smartphone, SmartphoneNfc } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  ExternalLink,
+  CheckCheck,
+  Mail,
+  Clock,
+  Smartphone,
+  SmartphoneNfc,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,8 +52,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ||
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  (window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
     ? "http://localhost:3000"
     : "");
 
@@ -55,19 +66,32 @@ async function fetchVapidPublicKey(): Promise<string> {
   return data.publicKey as string;
 }
 
-async function apiSubscribe(token: string, sub: PushSubscriptionJSON): Promise<void> {
+async function apiSubscribe(
+  token: string,
+  sub: PushSubscriptionJSON,
+): Promise<void> {
   const keys = sub.keys as { p256dh: string; auth: string };
   await fetch(`${API_BASE}/api/push/subscribe`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      endpoint: sub.endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+    }),
   });
 }
 
 async function apiUnsubscribe(token: string, endpoint: string): Promise<void> {
   await fetch(`${API_BASE}/api/push/subscribe`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ endpoint }),
   });
 }
@@ -83,12 +107,12 @@ async function apiSendMockNotification(token: string): Promise<void> {
 
 function PushNotificationSettingsCard() {
   const { toast } = useToast();
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    () => {
-      if (typeof Notification === "undefined") return "unsupported";
-      return Notification.permission;
-    },
-  );
+  const [permission, setPermission] = useState<
+    NotificationPermission | "unsupported"
+  >(() => {
+    if (typeof Notification === "undefined") return "unsupported";
+    return Notification.permission;
+  });
   const [loading, setLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<PushSubscription | null>(null);
 
@@ -98,7 +122,7 @@ function PushNotificationSettingsCard() {
     navigator.serviceWorker.ready
       .then((reg) => reg.pushManager.getSubscription())
       .then((sub) => setCurrentSub(sub))
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   const getToken = useCallback(async (): Promise<string | null> => {
@@ -106,13 +130,16 @@ function PushNotificationSettingsCard() {
     try {
       const clerk = (window as any).Clerk;
       if (clerk?.session) return await clerk.session.getToken();
-    } catch { }
+    } catch {}
     return null;
   }, []);
 
   const handleEnable = async () => {
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      toast({ title: "Push notifications not supported in this browser", variant: "destructive" });
+      toast({
+        title: "Push notifications not supported in this browser",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -124,7 +151,8 @@ function PushNotificationSettingsCard() {
       if (result !== "granted") {
         toast({
           title: "Permission denied",
-          description: "Enable notifications in your browser settings to receive push alerts.",
+          description:
+            "Enable notifications in your browser settings to receive push alerts.",
           variant: "destructive",
         });
         return;
@@ -153,12 +181,16 @@ function PushNotificationSettingsCard() {
       } else {
         toast({
           title: "Subscribed locally",
-          description: "Could not save to server — please reload and try again.",
+          description:
+            "Could not save to server — please reload and try again.",
         });
       }
     } catch (err) {
       console.error(err);
-      toast({ title: "Failed to enable push notifications", variant: "destructive" });
+      toast({
+        title: "Failed to enable push notifications",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -175,7 +207,10 @@ function PushNotificationSettingsCard() {
       toast({ title: "Push notifications disabled" });
     } catch (err) {
       console.error(err);
-      toast({ title: "Failed to disable notifications", variant: "destructive" });
+      toast({
+        title: "Failed to disable notifications",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -199,10 +234,13 @@ function PushNotificationSettingsCard() {
           </p>
         ) : permission === "denied" ? (
           <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 space-y-1">
-            <p className="text-sm font-medium text-destructive">Notifications blocked</p>
+            <p className="text-sm font-medium text-destructive">
+              Notifications blocked
+            </p>
             <p className="text-xs text-muted-foreground">
-              You've blocked notifications for this site. To re-enable them, click the lock icon
-              in your browser's address bar and allow notifications, then refresh the page.
+              You've blocked notifications for this site. To re-enable them,
+              click the lock icon in your browser's address bar and allow
+              notifications, then refresh the page.
             </p>
           </div>
         ) : isSubscribed ? (
@@ -212,8 +250,8 @@ function PushNotificationSettingsCard() {
               <span className="font-medium">Push notifications active</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              You'll receive a notification whenever someone you follow solves a LeetCode problem —
-              with a direct link to try it yourself!
+              You'll receive a notification whenever someone you follow solves a
+              LeetCode problem — with a direct link to try it yourself!
             </p>
             <Button
               id="disable-push-notifications"
@@ -232,8 +270,8 @@ function PushNotificationSettingsCard() {
             <div className="space-y-1">
               <p className="text-sm font-medium">Get notified instantly</p>
               <p className="text-xs text-muted-foreground">
-                Allow push notifications and we'll alert you the moment a followed user solves a
-                new problem — so you can try it too!
+                Allow push notifications and we'll alert you the moment a
+                followed user solves a new problem — so you can try it too!
               </p>
             </div>
             <Button
@@ -272,12 +310,16 @@ function EmailSettingsCard() {
     if (prefs) {
       setHour(prefs.digestHour);
       // Snap to nearest 5-minute step in case the DB has a non-step value
-      setMinute(Math.round(prefs.digestMinute / 5) * 5 % 60);
+      setMinute((Math.round(prefs.digestMinute / 5) * 5) % 60);
       setEnabled(prefs.emailEnabled);
     }
   }, [prefs]);
 
-  const save = (patch: { digestHour?: number; digestMinute?: number; emailEnabled?: boolean }) => {
+  const save = (patch: {
+    digestHour?: number;
+    digestMinute?: number;
+    emailEnabled?: boolean;
+  }) => {
     updatePrefs.mutate(
       { data: patch },
       {
@@ -286,7 +328,10 @@ function EmailSettingsCard() {
           toast({ title: "Email preferences saved" });
         },
         onError: () => {
-          toast({ title: "Failed to save preferences", variant: "destructive" });
+          toast({
+            title: "Failed to save preferences",
+            variant: "destructive",
+          });
         },
       },
     );
@@ -333,12 +378,14 @@ function EmailSettingsCard() {
               setEnabled(next);
               save({ emailEnabled: next });
             }}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ${enabled ? "bg-primary" : "bg-input"
-              }`}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ${
+              enabled ? "bg-primary" : "bg-input"
+            }`}
           >
             <span
-              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${enabled ? "translate-x-5" : "translate-x-0"
-                }`}
+              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                enabled ? "translate-x-5" : "translate-x-0"
+              }`}
             />
           </button>
         </div>
@@ -431,8 +478,12 @@ export default function NotificationsPage() {
   const markOne = useMarkNotificationRead();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey({}) });
-    queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey({ unreadOnly: true }) });
+    queryClient.invalidateQueries({
+      queryKey: getListNotificationsQueryKey({}),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getListNotificationsQueryKey({ unreadOnly: true }),
+    });
   };
 
   const handleMarkAll = () => {
@@ -445,13 +496,12 @@ export default function NotificationsPage() {
   };
 
   const handleMarkOne = (id: number) => {
-    markOne.mutate(
-      { id },
-      { onSuccess: () => invalidate() },
-    );
+    markOne.mutate({ id }, { onSuccess: () => invalidate() });
   };
 
-  const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.read).length : 0;
+  const unreadCount = Array.isArray(notifications)
+    ? notifications.filter((n) => !n.read).length
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -507,9 +557,14 @@ export default function NotificationsPage() {
             ) : !Array.isArray(notifications) || notifications.length === 0 ? (
               <div className="px-5 py-16 text-center">
                 <BellOff className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No notifications yet.</p>
+                <p className="text-muted-foreground text-sm">
+                  No notifications yet.
+                </p>
                 <p className="text-muted-foreground text-xs mt-1">
-                  <Link href="/follows" className="text-primary hover:underline">
+                  <Link
+                    href="/follows"
+                    className="text-primary hover:underline"
+                  >
                     Follow some users
                   </Link>{" "}
                   to get notified when they solve problems.
@@ -520,15 +575,19 @@ export default function NotificationsPage() {
                 {notifications.map((notif) => (
                   <div
                     key={notif.id}
-                    className={`px-5 py-4 flex gap-3 items-start transition-colors hover:bg-muted/30 ${!notif.read ? "bg-primary/5 border-l-2 border-l-primary" : ""
-                      }`}
+                    className={`px-5 py-4 flex gap-3 items-start transition-colors hover:bg-muted/30 ${
+                      !notif.read
+                        ? "bg-primary/5 border-l-2 border-l-primary"
+                        : ""
+                    }`}
                     data-testid={`notification-item-${notif.id}`}
                   >
                     <div
-                      className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${notif.read
+                      className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        notif.read
                           ? "bg-muted text-muted-foreground"
                           : "bg-primary/15 text-primary"
-                        }`}
+                      }`}
                     >
                       {notif.leetcodeUsername
                         ? notif.leetcodeUsername[0].toUpperCase()
@@ -536,7 +595,9 @@ export default function NotificationsPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notif.read ? "font-medium" : "text-muted-foreground"}`}>
+                      <p
+                        className={`text-sm ${!notif.read ? "font-medium" : "text-muted-foreground"}`}
+                      >
                         {notif.message}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
@@ -570,9 +631,14 @@ export default function NotificationsPage() {
                         )}
                         <span className="text-xs text-muted-foreground">
                           {(() => {
-                            const date = new Date(notif.solvedAt || notif.createdAt);
-                            const finalDate = date > new Date() ? new Date() : date;
-                            return formatDistanceToNow(finalDate, { addSuffix: true });
+                            const date = new Date(
+                              notif.solvedAt || notif.createdAt,
+                            );
+                            const finalDate =
+                              date > new Date() ? new Date() : date;
+                            return formatDistanceToNow(finalDate, {
+                              addSuffix: true,
+                            });
                           })()}
                         </span>
                       </div>

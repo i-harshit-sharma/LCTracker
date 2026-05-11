@@ -36,7 +36,7 @@ router.get("/logs/stream", (req, res) => {
           start: currentSize,
           end: stats.size,
         });
-        
+
         let buffer = "";
         stream.on("data", (chunk) => {
           buffer += chunk.toString();

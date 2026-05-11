@@ -1,8 +1,18 @@
 import { Link, useLocation } from "wouter";
-import { Bell, Users, LayoutDashboard, LogOut, User, Map as MapIcon } from "lucide-react";
+import {
+  Bell,
+  Users,
+  LayoutDashboard,
+  LogOut,
+  User,
+  Map as MapIcon,
+} from "lucide-react";
 import { SiLeetcode } from "react-icons/si";
 import { useUser, useClerk } from "@clerk/react";
-import { useListNotifications, getListNotificationsQueryKey } from "@workspace/api-client-react";
+import {
+  useListNotifications,
+  getListNotificationsQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +44,12 @@ export function Navbar() {
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/skyline", icon: MapIcon, label: "Skyline" },
     { href: "/follows", icon: Users, label: "Following" },
-    { href: "/notifications", icon: Bell, label: "Notifications", badge: unreadCount },
+    {
+      href: "/notifications",
+      icon: Bell,
+      label: "Notifications",
+      badge: unreadCount,
+    },
   ];
 
   return (
@@ -95,7 +110,9 @@ export function Navbar() {
                 <User className="h-4 w-4" />
               )}
               <span className="hidden md:block text-sm max-w-[120px] truncate">
-                {user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? "Account"}
+                {user?.fullName ??
+                  user?.emailAddresses?.[0]?.emailAddress ??
+                  "Account"}
               </span>
             </Button>
           </DropdownMenuTrigger>

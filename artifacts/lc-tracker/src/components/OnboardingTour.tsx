@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
-import { Joyride, Step, ACTIONS, EVENTS, STATUS, type EventData as CallBackProps } from "react-joyride";
+import {
+  Joyride,
+  Step,
+  ACTIONS,
+  EVENTS,
+  STATUS,
+  type EventData as CallBackProps,
+} from "react-joyride";
 import { useLocation } from "wouter";
-import { useGetPreferences, useUpdatePreferences } from "@workspace/api-client-react";
+import {
+  useGetPreferences,
+  useUpdatePreferences,
+} from "@workspace/api-client-react";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 
 export function OnboardingTour() {
@@ -14,7 +24,12 @@ export function OnboardingTour() {
 
   useEffect(() => {
     const preferences = prefs as any;
-    if (!isLoading && preferences && !preferences.onboardingCompleted && isTourEnabled) {
+    if (
+      !isLoading &&
+      preferences &&
+      !preferences.onboardingCompleted &&
+      isTourEnabled
+    ) {
       setRun(true);
     }
   }, [isLoading, prefs, isTourEnabled]);
@@ -27,7 +42,10 @@ export function OnboardingTour() {
       content: (
         <div className="text-left">
           <h3 className="font-bold text-lg mb-2">Welcome to LCTracker! 🚀</h3>
-          <p>Let's get your account set up so you can start tracking your progress and following friends.</p>
+          <p>
+            Let's get your account set up so you can start tracking your
+            progress and following friends.
+          </p>
         </div>
       ),
       placement: "center",
@@ -48,12 +66,14 @@ export function OnboardingTour() {
     } else {
       steps.push({
         target: "#tour-verification-token",
-        content: "Copy this token and paste it into your LeetCode profile 'About' section.",
+        content:
+          "Copy this token and paste it into your LeetCode profile 'About' section.",
         placement: "bottom",
       });
       steps.push({
         target: "#tour-verify-button",
-        content: "Once you've updated your LeetCode profile, click here to verify ownership.",
+        content:
+          "Once you've updated your LeetCode profile, click here to verify ownership.",
         placement: "top",
       });
     }
@@ -62,13 +82,15 @@ export function OnboardingTour() {
     if (location === "/dashboard") {
       steps.push({
         target: "#tour-nav-follows",
-        content: "Now that you're verified, go to the 'Following' page to add your friends!",
+        content:
+          "Now that you're verified, go to the 'Following' page to add your friends!",
         placement: "bottom",
       });
     } else if (location === "/follows") {
       steps.push({
         target: "#tour-follow-form",
-        content: "Simply enter your friend's LeetCode username here to start tracking their progress alongside yours.",
+        content:
+          "Simply enter your friend's LeetCode username here to start tracking their progress alongside yours.",
         placement: "bottom",
       });
       steps.push({
@@ -76,7 +98,10 @@ export function OnboardingTour() {
         content: (
           <div className="text-left">
             <h3 className="font-bold text-lg mb-2">You're all set! 🎉</h3>
-            <p>You've learned how to connect your account and follow friends. Enjoy tracking!</p>
+            <p>
+              You've learned how to connect your account and follow friends.
+              Enjoy tracking!
+            </p>
           </div>
         ),
         placement: "center",
@@ -141,7 +166,7 @@ export function OnboardingTour() {
         },
         buttonSkip: {
           color: "hsl(215, 20%, 65%)",
-        }
+        },
       }}
     />
   );

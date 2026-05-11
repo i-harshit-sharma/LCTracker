@@ -20,7 +20,9 @@ export const followsTable = pgTable("follows", {
   totalSolved: integer("total_solved"),
   /** Timestamp of the last time this profile was polled for new submissions */
   lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export const insertFollowSchema = createInsertSchema(followsTable).omit({

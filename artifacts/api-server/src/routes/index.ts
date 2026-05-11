@@ -24,4 +24,3 @@ router.use(adminRouter);
 router.use(pollerRouter);
 
 export default router;
-

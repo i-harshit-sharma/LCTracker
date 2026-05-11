@@ -1,5 +1,12 @@
 import { Link, useParams } from "wouter";
-import { ExternalLink, ArrowLeft, Target, UserPlus, UserMinus, Users } from "lucide-react";
+import {
+  ExternalLink,
+  ArrowLeft,
+  Target,
+  UserPlus,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +42,9 @@ function StatPill({
   color: string;
 }) {
   return (
-    <div className={`flex flex-col items-center py-3 px-4 rounded-xl border ${color}`}>
+    <div
+      className={`flex flex-col items-center py-3 px-4 rounded-xl border ${color}`}
+    >
       <span className="text-2xl font-bold">{value ?? "—"}</span>
       <span className="text-xs text-muted-foreground mt-0.5">{label}</span>
     </div>
@@ -127,7 +136,11 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading, isError } = useGetLeetcodeProfile(username!, {
+  const {
+    data: profile,
+    isLoading,
+    isError,
+  } = useGetLeetcodeProfile(username!, {
     query: {
       enabled: !!username,
       queryKey: getGetLeetcodeProfileQueryKey(username!),
@@ -139,13 +152,19 @@ export default function ProfilePage() {
   const deleteFollow = useDeleteFollow();
 
   const existingFollow = Array.isArray(follows)
-    ? follows.find((f) => f.leetcodeUsername.toLowerCase() === username?.toLowerCase())
+    ? follows.find(
+        (f) => f.leetcodeUsername.toLowerCase() === username?.toLowerCase(),
+      )
     : undefined;
   const isFollowing = !!existingFollow;
 
   // Track which following username is currently having a follow/unfollow action
-  const [pendingFollowUsername, setPendingFollowUsername] = React.useState<string | null>(null);
-  const [pendingUnfollowUsername, setPendingUnfollowUsername] = React.useState<string | null>(null);
+  const [pendingFollowUsername, setPendingFollowUsername] = React.useState<
+    string | null
+  >(null);
+  const [pendingUnfollowUsername, setPendingUnfollowUsername] = React.useState<
+    string | null
+  >(null);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getListFollowsQueryKey() });
@@ -202,7 +221,9 @@ export default function ProfilePage() {
           setPendingFollowUsername(null);
           invalidateAll();
           // Refresh profile to get updated query key
-          queryClient.invalidateQueries({ queryKey: getGetLeetcodeProfileQueryKey(username!) });
+          queryClient.invalidateQueries({
+            queryKey: getGetLeetcodeProfileQueryKey(username!),
+          });
         },
         onError: (err: any) => {
           toast({
@@ -312,8 +333,8 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Follow / Unfollow button */}
-                  {follows !== undefined && (
-                    isFollowing ? (
+                  {follows !== undefined &&
+                    (isFollowing ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -336,8 +357,7 @@ export default function ProfilePage() {
                         <UserPlus className="h-3.5 w-3.5 mr-1.5" />
                         {createFollow.isPending ? "..." : "Follow"}
                       </Button>
-                    )
-                  )}
+                    ))}
                 </div>
 
                 {/* Stats */}
@@ -389,7 +409,8 @@ export default function ProfilePage() {
                     <Users className="h-4 w-4 text-primary" />
                     Following
                     <span className="ml-auto text-xs font-normal text-muted-foreground">
-                      {profile.following.length} user{profile.following.length !== 1 ? "s" : ""}
+                      {profile.following.length} user
+                      {profile.following.length !== 1 ? "s" : ""}
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -397,7 +418,9 @@ export default function ProfilePage() {
                   <div className="divide-y divide-border">
                     {profile.following.map((entry) => {
                       const followRecord = follows?.find(
-                        (f) => f.leetcodeUsername.toLowerCase() === entry.username.toLowerCase(),
+                        (f) =>
+                          f.leetcodeUsername.toLowerCase() ===
+                          entry.username.toLowerCase(),
                       );
                       return (
                         <FollowingCard
@@ -406,9 +429,15 @@ export default function ProfilePage() {
                           isFollowing={!!followRecord}
                           followId={followRecord?.id}
                           onFollow={handleFollowEntry}
-                          onUnfollow={(id) => handleUnfollowEntry(id, entry.username)}
-                          isPendingFollow={pendingFollowUsername === entry.username}
-                          isPendingUnfollow={pendingUnfollowUsername === entry.username}
+                          onUnfollow={(id) =>
+                            handleUnfollowEntry(id, entry.username)
+                          }
+                          isPendingFollow={
+                            pendingFollowUsername === entry.username
+                          }
+                          isPendingUnfollow={
+                            pendingUnfollowUsername === entry.username
+                          }
                         />
                       );
                     })}
@@ -428,7 +457,8 @@ export default function ProfilePage() {
               <CardContent className="p-0">
                 {!profile.recentProblems?.length ? (
                   <div className="px-5 py-10 text-center text-muted-foreground text-sm">
-                    No problems tracked yet. Check back after the next poll cycle.
+                    No problems tracked yet. Check back after the next poll
+                    cycle.
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
@@ -440,7 +470,8 @@ export default function ProfilePage() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-x-2">
-                            {(problem.problemSlug.startsWith("private-") || problem.problemSlug.startsWith("unknown-")) ? (
+                            {problem.problemSlug.startsWith("private-") ||
+                            problem.problemSlug.startsWith("unknown-") ? (
                               <span className="text-sm font-medium">
                                 {problem.problemTitle}
                               </span>
@@ -456,16 +487,18 @@ export default function ProfilePage() {
                                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                               </a>
                             )}
-                            {problem.submissionId && !problem.submissionId.startsWith("private-") && !problem.submissionId.startsWith("unknown-") && (
-                              <a
-                                href={`https://leetcode.com/problems/${problem.problemSlug}/submissions/${problem.submissionId}/`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-primary/60 hover:text-primary hover:underline"
-                              >
-                                (Submission)
-                              </a>
-                            )}
+                            {problem.submissionId &&
+                              !problem.submissionId.startsWith("private-") &&
+                              !problem.submissionId.startsWith("unknown-") && (
+                                <a
+                                  href={`https://leetcode.com/problems/${problem.problemSlug}/submissions/${problem.submissionId}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-primary/60 hover:text-primary hover:underline"
+                                >
+                                  (Submission)
+                                </a>
+                              )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {formatDistanceToNow(new Date(problem.solvedAt), {
@@ -489,11 +522,11 @@ export default function ProfilePage() {
 
 function HeatmapWrapper({ username }: { username: string }) {
   const { data: heatmapData, isLoading } = useGetProfileHeatmap(username);
-  
+
   return (
-    <Heatmap 
-      data={Array.isArray(heatmapData) ? heatmapData : []} 
-      isLoading={isLoading} 
+    <Heatmap
+      data={Array.isArray(heatmapData) ? heatmapData : []}
+      isLoading={isLoading}
     />
   );
 }

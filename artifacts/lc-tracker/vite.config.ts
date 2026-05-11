@@ -11,7 +11,9 @@ const basePath = process.env.BASE_PATH || "/";
 export default defineConfig({
   base: basePath,
   define: {
-    'process.env.APP_VERSION': JSON.stringify(process.env.npm_package_version || '0.0.0'),
+    "process.env.APP_VERSION": JSON.stringify(
+      process.env.npm_package_version || "0.0.0",
+    ),
   },
   plugins: [
     react(),
@@ -34,7 +36,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      "@assets": path.resolve(
+        import.meta.dirname,
+        "..",
+        "..",
+        "attached_assets",
+      ),
     },
     dedupe: ["react", "react-dom"],
   },

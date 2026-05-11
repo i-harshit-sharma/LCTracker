@@ -5,8 +5,5 @@
     "rootDir": "..",
     "types": ["node"]
   },
-  "include": [
-    "src",
-    "../artifacts/api-server/src/lib/**/*.ts"
-  ]
+  "include": ["src", "../artifacts/api-server/src/lib/**/*.ts"]
 }

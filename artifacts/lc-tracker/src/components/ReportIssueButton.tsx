@@ -9,7 +9,10 @@ export function ReportIssueButton() {
     posthog?.capture("report_issue_clicked", {
       url: window.location.href,
     });
-    window.open("https://github.com/i-harshit-sharma/LCTracker/issues/new", "_blank");
+    window.open(
+      "https://github.com/i-harshit-sharma/LCTracker/issues/new",
+      "_blank",
+    );
   };
 
   return (

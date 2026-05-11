@@ -65,7 +65,9 @@ export default function FollowsPage() {
         onError: (err: any) => {
           toast({
             title: "Failed to follow",
-            description: err?.data?.error ?? "That username might not exist or be private.",
+            description:
+              err?.data?.error ??
+              "That username might not exist or be private.",
             variant: "destructive",
           });
         },
@@ -91,7 +93,9 @@ export default function FollowsPage() {
   };
 
   const filtered = Array.isArray(follows)
-    ? follows.filter((f) => f.leetcodeUsername.toLowerCase().includes(search.toLowerCase()))
+    ? follows.filter((f) =>
+        f.leetcodeUsername.toLowerCase().includes(search.toLowerCase()),
+      )
     : [];
 
   return (
@@ -180,7 +184,8 @@ export default function FollowsPage() {
               </div>
             ) : !Array.isArray(follows) || follows.length === 0 ? (
               <div className="px-5 py-12 text-center text-muted-foreground text-sm">
-                You're not following anyone yet. Add a LeetCode username above to get started.
+                You're not following anyone yet. Add a LeetCode username above
+                to get started.
               </div>
             ) : !filtered?.length ? (
               <div className="px-5 py-10 text-center text-muted-foreground text-sm">
@@ -235,7 +240,9 @@ export default function FollowsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onUnfollow(follow.id, follow.leetcodeUsername)}
+                      onClick={() =>
+                        onUnfollow(follow.id, follow.leetcodeUsername)
+                      }
                       disabled={deletingId === follow.id}
                       data-testid={`button-unfollow-${follow.id}`}
                       className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"

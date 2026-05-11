@@ -27,72 +27,75 @@ import posthog from "./posthog";
 
 /** Register all cron jobs. Call once at server startup. */
 export function startCronJobs(): void {
-	// ─── Per-user digest: runs every minute, matches hour+minute ─────────────
-	cron.schedule(
-		"* * * * *",
-		async () => {
-			const now = new Date();
-			const currentHour = now.getUTCHours();
-			const currentMinute = now.getUTCMinutes();
+  // ─── Per-user digest: runs every minute, matches hour+minute ─────────────
+  cron.schedule(
+    "* * * * *",
+    async () => {
+      const now = new Date();
+      const currentHour = now.getUTCHours();
+      const currentMinute = now.getUTCMinutes();
 
-			logger.debug({ currentHour, currentMinute }, "Cron: matching digest at UTC time");
-			// Find all users whose digest time matches right now (UTC)
-			const targets = await db
-				.select({ userId: userPreferencesTable.userId })
-				.from(userPreferencesTable)
-				.where(
-					and(
-						eq(userPreferencesTable.digestHour, currentHour),
-						eq(userPreferencesTable.digestMinute, currentMinute),
-						eq(userPreferencesTable.emailEnabled, true),
-					),
-				);
+      logger.debug(
+        { currentHour, currentMinute },
+        "Cron: matching digest at UTC time",
+      );
+      // Find all users whose digest time matches right now (UTC)
+      const targets = await db
+        .select({ userId: userPreferencesTable.userId })
+        .from(userPreferencesTable)
+        .where(
+          and(
+            eq(userPreferencesTable.digestHour, currentHour),
+            eq(userPreferencesTable.digestMinute, currentMinute),
+            eq(userPreferencesTable.emailEnabled, true),
+          ),
+        );
 
-			if (!targets.length) return; // No one has their digest scheduled right now
+      if (!targets.length) return; // No one has their digest scheduled right now
 
-			logger.info(
-				{
-					count: targets.length,
-					hour: currentHour,
-					minute: currentMinute,
-				},
-				"Cron: dispatching digest emails (UTC)",
-			);
+      logger.info(
+        {
+          count: targets.length,
+          hour: currentHour,
+          minute: currentMinute,
+        },
+        "Cron: dispatching digest emails (UTC)",
+      );
 
-			posthog.capture({
-				distinctId: "api-server",
-				event: "Daily Digest Dispatched",
-				properties: {
-					count: targets.length,
-					hour: currentHour,
-					minute: currentMinute,
-				},
-			});
+      posthog.capture({
+        distinctId: "api-server",
+        event: "Daily Digest Dispatched",
+        properties: {
+          count: targets.length,
+          hour: currentHour,
+          minute: currentMinute,
+        },
+      });
 
-			try {
-				await sendDailyDigests(targets.map((t) => t.userId));
-			} catch (err) {
-				logger.error({ err }, "Cron: daily digest failed");
-			}
-		},
-		{ timezone: "UTC" },
-	);
+      try {
+        await sendDailyDigests(targets.map((t) => t.userId));
+      } catch (err) {
+        logger.error({ err }, "Cron: daily digest failed");
+      }
+    },
+    { timezone: "UTC" },
+  );
 
-	// ─── Poll fallback every 5 minutes ────────────────────────────────────────
-	cron.schedule("*/5 * * * *", async () => {
-		logger.debug("Cron: poll heartbeat");
-		try {
-			posthog.capture({
-				distinctId: "api-server",
-				event: "Poll Heartbeat Executed",
-			});
-			await runPollCycle();
-		} catch (err) {
-			logger.error({ err }, "Cron: poll cycle failed");
-		}
-	});
+  // ─── Poll fallback every 5 minutes ────────────────────────────────────────
+  cron.schedule("*/5 * * * *", async () => {
+    logger.debug("Cron: poll heartbeat");
+    try {
+      posthog.capture({
+        distinctId: "api-server",
+        event: "Poll Heartbeat Executed",
+      });
+      await runPollCycle();
+    } catch (err) {
+      logger.error({ err }, "Cron: poll cycle failed");
+    }
+  });
 
-	logger.info(
-		"Cron jobs registered (digest per-minute with user schedules, poll every 5 min)",
-	);
+  logger.info(
+    "Cron jobs registered (digest per-minute with user schedules, poll every 5 min)",
+  );
 }

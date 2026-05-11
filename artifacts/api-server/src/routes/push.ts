@@ -70,37 +70,41 @@ router.post("/push/subscribe", requireAuth, async (req, res): Promise<void> => {
 
 // ── DELETE /api/push/subscribe ────────────────────────────────────────────────
 
-router.delete("/push/subscribe", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as any).userId as string;
+router.delete(
+  "/push/subscribe",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = (req as any).userId as string;
 
-  const parsed = DeletePushSubscriptionBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+    const parsed = DeletePushSubscriptionBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
 
-  const { endpoint } = parsed.data;
+    const { endpoint } = parsed.data;
 
-  await db
-    .delete(pushSubscriptionsTable)
-    .where(
-      and(
-        eq(pushSubscriptionsTable.endpoint, endpoint),
-        eq(pushSubscriptionsTable.userId, userId),
-      ),
-    );
+    await db
+      .delete(pushSubscriptionsTable)
+      .where(
+        and(
+          eq(pushSubscriptionsTable.endpoint, endpoint),
+          eq(pushSubscriptionsTable.userId, userId),
+        ),
+      );
 
-  logger.info({ userId, endpoint }, "Push subscription removed");
-  res.json(DeletePushSubscriptionResponse.parse({ success: true }));
+    logger.info({ userId, endpoint }, "Push subscription removed");
+    res.json(DeletePushSubscriptionResponse.parse({ success: true }));
 
-  posthog.capture({
-    distinctId: userId,
-    event: "Push Unsubscribed",
-    properties: {
-      endpoint,
-    },
-  });
-});
+    posthog.capture({
+      distinctId: userId,
+      event: "Push Unsubscribed",
+      properties: {
+        endpoint,
+      },
+    });
+  },
+);
 
 // ── POST /api/push/mock ──────────────────────────────────────────────────────
 // Sends a sample notification to the user's active subscriptions to verify setup.

@@ -19,8 +19,24 @@
 
 import { Router, type IRouter } from "express";
 
-import { db, solvedProblemsTable, leetcodeProfilesTable, sql, eq, desc, gte, lt, and } from "@workspace/db";
-import { GetLeetcodeProfileParams, GetLeetcodeProfileResponse, GetDbProfileSummaryResponse, GetProfileHeatmapParams, GetProfileHeatmapResponse } from "@workspace/api-zod";
+import {
+  db,
+  solvedProblemsTable,
+  leetcodeProfilesTable,
+  sql,
+  eq,
+  desc,
+  gte,
+  lt,
+  and,
+} from "@workspace/db";
+import {
+  GetLeetcodeProfileParams,
+  GetLeetcodeProfileResponse,
+  GetDbProfileSummaryResponse,
+  GetProfileHeatmapParams,
+  GetProfileHeatmapResponse,
+} from "@workspace/api-zod";
 import { getLeetCodeProfile, getLeetCodeFollowing } from "../lib/leetcode";
 import { requireAuth } from "../lib/auth";
 import { serializeDates } from "../lib/serialize";
@@ -29,30 +45,275 @@ import type { LCFollowingEntry } from "../lib/leetcode";
 
 const router: IRouter = Router();
 
-router.get("/profiles/:username", requireAuth, async (req, res): Promise<void> => {
-  const rawUsername = Array.isArray(req.params.username)
-    ? req.params.username[0]
-    : req.params.username;
+router.get(
+  "/profiles/:username",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const rawUsername = Array.isArray(req.params.username)
+      ? req.params.username[0]
+      : req.params.username;
 
-  const params = GetLeetcodeProfileParams.safeParse({ username: rawUsername });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid username" });
-    return;
-  }
+    const params = GetLeetcodeProfileParams.safeParse({
+      username: rawUsername,
+    });
+    if (!params.success) {
+      res.status(400).json({ error: "Invalid username" });
+      return;
+    }
 
-  const { username } = params.data;
+    const { username } = params.data;
 
-  // 1. Try the shared profile cache first
-  const [cachedProfile] = await db
-    .select()
-    .from(leetcodeProfilesTable)
-    .where(eq(leetcodeProfilesTable.username, username))
-    .limit(1);
+    // 1. Try the shared profile cache first
+    const [cachedProfile] = await db
+      .select()
+      .from(leetcodeProfilesTable)
+      .where(eq(leetcodeProfilesTable.username, username))
+      .limit(1);
 
-  let profileData = cachedProfile ?? null;
+    let profileData = cachedProfile ?? null;
 
-  // 2. If no cache entry exists yet, do a live fetch and persist it
-  if (!profileData) {
+    // 2. If no cache entry exists yet, do a live fetch and persist it
+    if (!profileData) {
+      const [live, liveFollowing] = await Promise.all([
+        getLeetCodeProfile(username),
+        getLeetCodeFollowing(username, 30),
+      ]);
+
+      if (!live) {
+        res.status(404).json({ error: "LeetCode profile not found" });
+        return;
+      }
+
+      const [inserted] = await db
+        .insert(leetcodeProfilesTable)
+        .values({
+          username,
+          displayName: live.realName ?? null,
+          avatarUrl: live.userAvatar ?? null,
+          totalSolved: live.totalSolved ?? null,
+          easySolved: live.easySolved ?? null,
+          mediumSolved: live.mediumSolved ?? null,
+          hardSolved: live.hardSolved ?? null,
+          followingJson: liveFollowing.length
+            ? JSON.stringify(liveFollowing)
+            : null,
+          lastPolledAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: leetcodeProfilesTable.username,
+          set: {
+            displayName: live.realName ?? null,
+            avatarUrl: live.userAvatar ?? null,
+            totalSolved: live.totalSolved ?? null,
+            easySolved: live.easySolved ?? null,
+            mediumSolved: live.mediumSolved ?? null,
+            hardSolved: live.hardSolved ?? null,
+            followingJson: liveFollowing.length
+              ? JSON.stringify(liveFollowing)
+              : null,
+            lastPolledAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+
+      profileData = inserted;
+    }
+
+    // 3. Parse the cached following list (stored as JSON string)
+    let following: LCFollowingEntry[] = [];
+    if (profileData.followingJson) {
+      try {
+        following = JSON.parse(profileData.followingJson) as LCFollowingEntry[];
+      } catch {
+        following = [];
+      }
+    }
+
+    // 4. Fetch stored solved problems from our DB (most recent 20)
+    const recentProblems = await db
+      .select()
+      .from(solvedProblemsTable)
+      .where(eq(solvedProblemsTable.leetcodeUsername, username))
+      .orderBy(desc(solvedProblemsTable.solvedAt))
+      .limit(20);
+
+    res.json(
+      GetLeetcodeProfileResponse.parse(
+        serializeDates({
+          leetcodeUsername: profileData.username,
+          displayName: profileData.displayName ?? null,
+          avatarUrl: profileData.avatarUrl ?? null,
+          totalSolved: profileData.totalSolved ?? null,
+          easySolved: profileData.easySolved ?? null,
+          mediumSolved: profileData.mediumSolved ?? null,
+          hardSolved: profileData.hardSolved ?? null,
+          recentProblems,
+          following,
+        }),
+      ),
+    );
+
+    posthog.capture({
+      distinctId: (req as any).userId as string,
+      event: "Profile Viewed",
+      properties: {
+        viewedUsername: username,
+      },
+    });
+  },
+);
+
+/**
+ * GET /api/profiles/:username/db-summary
+ *
+ * DB-only lookup — never calls the LeetCode API, never inserts a row.
+ * Returns 404 if the username hasn't been crawled yet.
+ * Accepts ?period=day|week|month|year|all (default: week) to return
+ * solvedInPeriod alongside the basic profile data.
+ */
+router.get(
+  "/profiles/:username/db-summary",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const rawUsername = Array.isArray(req.params.username)
+      ? req.params.username[0]
+      : req.params.username;
+
+    const username = rawUsername?.trim();
+    if (!username) {
+      res.status(400).json({ error: "Invalid username" });
+      return;
+    }
+
+    // Read profile from cache — no live fetch, no write
+    const [cachedProfile] = await db
+      .select()
+      .from(leetcodeProfilesTable)
+      .where(eq(leetcodeProfilesTable.username, username))
+      .limit(1);
+
+    if (!cachedProfile) {
+      res.status(404).json({ error: "Not in database yet" });
+      return;
+    }
+
+    // Compute period start
+    const period = (req.query.period as string) ?? "week";
+    const now = new Date();
+    let periodStart: Date | null = null;
+    let periodEnd: Date | null = null;
+
+    if (period === "day") {
+      periodStart = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+    } else if (typeof period === "string" && period.startsWith("week-")) {
+      const datePart = period.replace("week-", "");
+      const parsed = new Date(datePart);
+      if (!isNaN(parsed.getTime())) {
+        periodStart = new Date(
+          Date.UTC(
+            parsed.getUTCFullYear(),
+            parsed.getUTCMonth(),
+            parsed.getUTCDate(),
+          ),
+        );
+        periodEnd = new Date(periodStart);
+        periodEnd.setUTCDate(periodEnd.getUTCDate() + 7);
+      }
+    } else if (period === "week") {
+      const startOfToday = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+      periodStart = new Date(startOfToday);
+      const day = periodStart.getUTCDay();
+      const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
+      periodStart.setUTCDate(periodStart.getUTCDate() - diff);
+    }
+    // period === "all" → periodStart stays null → count all
+
+    const dateFilters = [];
+    if (periodStart) {
+      dateFilters.push(gte(solvedProblemsTable.solvedAt, periodStart));
+    }
+    if (periodEnd) {
+      dateFilters.push(lt(solvedProblemsTable.solvedAt, periodEnd));
+    }
+
+    const countRows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(solvedProblemsTable)
+      .where(
+        dateFilters.length > 0
+          ? and(
+              eq(solvedProblemsTable.leetcodeUsername, username),
+              ...dateFilters,
+            )
+          : eq(solvedProblemsTable.leetcodeUsername, username),
+      );
+
+    const solvedInPeriod = countRows[0]?.count ?? 0;
+
+    // Fetch recent solved slugs (up to 100) so the dashboard can mark solved tick
+    // without requiring the viewer to follow themselves
+    const recentSlugRows = await db
+      .select({ problemSlug: solvedProblemsTable.problemSlug })
+      .from(solvedProblemsTable)
+      .where(eq(solvedProblemsTable.leetcodeUsername, username))
+      .orderBy(desc(solvedProblemsTable.solvedAt))
+      .limit(100);
+
+    const recentSlugs = recentSlugRows.map((r) => r.problemSlug.toLowerCase());
+
+    res.json(
+      GetDbProfileSummaryResponse.parse(
+        serializeDates({
+          leetcodeUsername: cachedProfile.username,
+          displayName: cachedProfile.displayName ?? null,
+          avatarUrl: cachedProfile.avatarUrl ?? null,
+          totalSolved: cachedProfile.totalSolved ?? null,
+          solvedInPeriod,
+          inDatabase: true,
+          recentSlugs,
+        }),
+      ),
+    );
+
+    posthog.capture({
+      distinctId: (req as any).userId as string,
+      event: "Profile Summary Viewed",
+      properties: {
+        viewedUsername: username,
+        period,
+      },
+    });
+  },
+);
+
+/**
+ * POST /api/profiles/:username/save
+ *
+ * One-shot fetch from LeetCode and upsert into leetcode_profiles.
+ * Does NOT create a follow row — the user won't be added to the global
+ * polling pool. This lets a viewer seed their own profile so the
+ * /db-summary endpoint can return data without making them "followed".
+ */
+router.post(
+  "/profiles/:username/save",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const rawUsername = Array.isArray(req.params.username)
+      ? req.params.username[0]
+      : req.params.username;
+
+    const username = rawUsername?.trim();
+    if (!username) {
+      res.status(400).json({ error: "Invalid username" });
+      return;
+    }
+
     const [live, liveFollowing] = await Promise.all([
       getLeetCodeProfile(username),
       getLeetCodeFollowing(username, 30),
@@ -63,7 +324,7 @@ router.get("/profiles/:username", requireAuth, async (req, res): Promise<void> =
       return;
     }
 
-    const [inserted] = await db
+    const [upserted] = await db
       .insert(leetcodeProfilesTable)
       .values({
         username,
@@ -73,7 +334,9 @@ router.get("/profiles/:username", requireAuth, async (req, res): Promise<void> =
         easySolved: live.easySolved ?? null,
         mediumSolved: live.mediumSolved ?? null,
         hardSolved: live.hardSolved ?? null,
-        followingJson: liveFollowing.length ? JSON.stringify(liveFollowing) : null,
+        followingJson: liveFollowing.length
+          ? JSON.stringify(liveFollowing)
+          : null,
         lastPolledAt: new Date(),
         updatedAt: new Date(),
       })
@@ -86,282 +349,71 @@ router.get("/profiles/:username", requireAuth, async (req, res): Promise<void> =
           easySolved: live.easySolved ?? null,
           mediumSolved: live.mediumSolved ?? null,
           hardSolved: live.hardSolved ?? null,
-          followingJson: liveFollowing.length ? JSON.stringify(liveFollowing) : null,
+          followingJson: liveFollowing.length
+            ? JSON.stringify(liveFollowing)
+            : null,
           lastPolledAt: new Date(),
           updatedAt: new Date(),
         },
       })
       .returning();
 
-    profileData = inserted;
-  }
-
-  // 3. Parse the cached following list (stored as JSON string)
-  let following: LCFollowingEntry[] = [];
-  if (profileData.followingJson) {
-    try {
-      following = JSON.parse(profileData.followingJson) as LCFollowingEntry[];
-    } catch {
-      following = [];
-    }
-  }
-
-  // 4. Fetch stored solved problems from our DB (most recent 20)
-  const recentProblems = await db
-    .select()
-    .from(solvedProblemsTable)
-    .where(eq(solvedProblemsTable.leetcodeUsername, username))
-    .orderBy(desc(solvedProblemsTable.solvedAt))
-    .limit(20);
-
-  res.json(
-    GetLeetcodeProfileResponse.parse(
-      serializeDates({
-        leetcodeUsername: profileData.username,
-        displayName: profileData.displayName ?? null,
-        avatarUrl: profileData.avatarUrl ?? null,
-        totalSolved: profileData.totalSolved ?? null,
-        easySolved: profileData.easySolved ?? null,
-        mediumSolved: profileData.mediumSolved ?? null,
-        hardSolved: profileData.hardSolved ?? null,
-        recentProblems,
-        following,
-      }),
-    ),
-  );
-
-  posthog.capture({
-    distinctId: (req as any).userId as string,
-    event: "Profile Viewed",
-    properties: {
-      viewedUsername: username,
-    },
-  });
-});
-
-/**
- * GET /api/profiles/:username/db-summary
- *
- * DB-only lookup — never calls the LeetCode API, never inserts a row.
- * Returns 404 if the username hasn't been crawled yet.
- * Accepts ?period=day|week|month|year|all (default: week) to return
- * solvedInPeriod alongside the basic profile data.
- */
-router.get("/profiles/:username/db-summary", requireAuth, async (req, res): Promise<void> => {
-  const rawUsername = Array.isArray(req.params.username)
-    ? req.params.username[0]
-    : req.params.username;
-
-  const username = rawUsername?.trim();
-  if (!username) {
-    res.status(400).json({ error: "Invalid username" });
-    return;
-  }
-
-  // Read profile from cache — no live fetch, no write
-  const [cachedProfile] = await db
-    .select()
-    .from(leetcodeProfilesTable)
-    .where(eq(leetcodeProfilesTable.username, username))
-    .limit(1);
-
-  if (!cachedProfile) {
-    res.status(404).json({ error: "Not in database yet" });
-    return;
-  }
-
-  // Compute period start
-  const period = (req.query.period as string) ?? "week";
-  const now = new Date();
-  let periodStart: Date | null = null;
-  let periodEnd: Date | null = null;
-
-  if (period === "day") {
-    periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  } else if (typeof period === "string" && period.startsWith("week-")) {
-    const datePart = period.replace("week-", "");
-    const parsed = new Date(datePart);
-    if (!isNaN(parsed.getTime())) {
-      periodStart = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
-      periodEnd = new Date(periodStart);
-      periodEnd.setUTCDate(periodEnd.getUTCDate() + 7);
-    }
-  } else if (period === "week") {
-    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    periodStart = new Date(startOfToday);
-    const day = periodStart.getUTCDay();
-    const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
-    periodStart.setUTCDate(periodStart.getUTCDate() - diff);
-  }
-  // period === "all" → periodStart stays null → count all
-
-  const dateFilters = [];
-  if (periodStart) {
-    dateFilters.push(gte(solvedProblemsTable.solvedAt, periodStart));
-  }
-  if (periodEnd) {
-    dateFilters.push(lt(solvedProblemsTable.solvedAt, periodEnd));
-  }
-
-  const countRows = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(solvedProblemsTable)
-    .where(
-      dateFilters.length > 0
-        ? and(
-            eq(solvedProblemsTable.leetcodeUsername, username),
-            ...dateFilters,
-          )
-        : eq(solvedProblemsTable.leetcodeUsername, username),
+    res.json(
+      GetDbProfileSummaryResponse.parse(
+        serializeDates({
+          leetcodeUsername: upserted.username,
+          displayName: upserted.displayName ?? null,
+          avatarUrl: upserted.avatarUrl ?? null,
+          totalSolved: upserted.totalSolved ?? null,
+          solvedInPeriod: 0,
+          inDatabase: true,
+          recentSlugs: [],
+        }),
+      ),
     );
 
-  const solvedInPeriod = countRows[0]?.count ?? 0;
-
-  // Fetch recent solved slugs (up to 100) so the dashboard can mark solved tick
-  // without requiring the viewer to follow themselves
-  const recentSlugRows = await db
-    .select({ problemSlug: solvedProblemsTable.problemSlug })
-    .from(solvedProblemsTable)
-    .where(eq(solvedProblemsTable.leetcodeUsername, username))
-    .orderBy(desc(solvedProblemsTable.solvedAt))
-    .limit(100);
-
-  const recentSlugs = recentSlugRows.map((r) => r.problemSlug.toLowerCase());
-
-  res.json(
-    GetDbProfileSummaryResponse.parse(
-      serializeDates({
-        leetcodeUsername: cachedProfile.username,
-        displayName: cachedProfile.displayName ?? null,
-        avatarUrl: cachedProfile.avatarUrl ?? null,
-        totalSolved: cachedProfile.totalSolved ?? null,
-        solvedInPeriod,
-        inDatabase: true,
-        recentSlugs,
-      }),
-    ),
-  );
-
-  posthog.capture({
-    distinctId: (req as any).userId as string,
-    event: "Profile Summary Viewed",
-    properties: {
-      viewedUsername: username,
-      period,
-    },
-  });
-});
-
-/**
- * POST /api/profiles/:username/save
- *
- * One-shot fetch from LeetCode and upsert into leetcode_profiles.
- * Does NOT create a follow row — the user won't be added to the global
- * polling pool. This lets a viewer seed their own profile so the
- * /db-summary endpoint can return data without making them "followed".
- */
-router.post("/profiles/:username/save", requireAuth, async (req, res): Promise<void> => {
-  const rawUsername = Array.isArray(req.params.username)
-    ? req.params.username[0]
-    : req.params.username;
-
-  const username = rawUsername?.trim();
-  if (!username) {
-    res.status(400).json({ error: "Invalid username" });
-    return;
-  }
-
-  const [live, liveFollowing] = await Promise.all([
-    getLeetCodeProfile(username),
-    getLeetCodeFollowing(username, 30),
-  ]);
-
-  if (!live) {
-    res.status(404).json({ error: "LeetCode profile not found" });
-    return;
-  }
-
-  const [upserted] = await db
-    .insert(leetcodeProfilesTable)
-    .values({
-      username,
-      displayName: live.realName ?? null,
-      avatarUrl: live.userAvatar ?? null,
-      totalSolved: live.totalSolved ?? null,
-      easySolved: live.easySolved ?? null,
-      mediumSolved: live.mediumSolved ?? null,
-      hardSolved: live.hardSolved ?? null,
-      followingJson: liveFollowing.length ? JSON.stringify(liveFollowing) : null,
-      lastPolledAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: leetcodeProfilesTable.username,
-      set: {
-        displayName: live.realName ?? null,
-        avatarUrl: live.userAvatar ?? null,
-        totalSolved: live.totalSolved ?? null,
-        easySolved: live.easySolved ?? null,
-        mediumSolved: live.mediumSolved ?? null,
-        hardSolved: live.hardSolved ?? null,
-        followingJson: liveFollowing.length ? JSON.stringify(liveFollowing) : null,
-        lastPolledAt: new Date(),
-        updatedAt: new Date(),
+    posthog.capture({
+      distinctId: (req as any).userId as string,
+      event: "Profile Saved",
+      properties: {
+        savedUsername: username,
       },
-    })
-    .returning();
-
-  res.json(
-    GetDbProfileSummaryResponse.parse(
-      serializeDates({
-        leetcodeUsername: upserted.username,
-        displayName: upserted.displayName ?? null,
-        avatarUrl: upserted.avatarUrl ?? null,
-        totalSolved: upserted.totalSolved ?? null,
-        solvedInPeriod: 0,
-        inDatabase: true,
-        recentSlugs: [],
-      }),
-    ),
-  );
-
-  posthog.capture({
-    distinctId: (req as any).userId as string,
-    event: "Profile Saved",
-    properties: {
-      savedUsername: username,
-    },
-  });
-});
+    });
+  },
+);
 
 /**
  * GET /api/profiles/:username/heatmap
  *
  * Returns daily solve counts for the last 365 days.
  */
-router.get("/profiles/:username/heatmap", requireAuth, async (req, res): Promise<void> => {
-  const { username } = GetProfileHeatmapParams.parse(req.params);
+router.get(
+  "/profiles/:username/heatmap",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const { username } = GetProfileHeatmapParams.parse(req.params);
 
-  const oneYearAgo = new Date();
-  oneYearAgo.setDate(oneYearAgo.getDate() - 365);
-  oneYearAgo.setHours(0, 0, 0, 0);
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+    oneYearAgo.setHours(0, 0, 0, 0);
 
-  const results = await db
-    .select({
-      date: sql<string>`DATE(${solvedProblemsTable.solvedAt})::text`,
-      count: sql<number>`COUNT(*)::int`,
-    })
-    .from(solvedProblemsTable)
-    .where(
-      and(
-        eq(solvedProblemsTable.leetcodeUsername, username),
-        gte(solvedProblemsTable.solvedAt, oneYearAgo),
-      ),
-    )
-    .groupBy(sql`DATE(${solvedProblemsTable.solvedAt})`)
-    .orderBy(sql`DATE(${solvedProblemsTable.solvedAt})`);
+    const results = await db
+      .select({
+        date: sql<string>`DATE(${solvedProblemsTable.solvedAt})::text`,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(solvedProblemsTable)
+      .where(
+        and(
+          eq(solvedProblemsTable.leetcodeUsername, username),
+          gte(solvedProblemsTable.solvedAt, oneYearAgo),
+        ),
+      )
+      .groupBy(sql`DATE(${solvedProblemsTable.solvedAt})`)
+      .orderBy(sql`DATE(${solvedProblemsTable.solvedAt})`);
 
-  res.json(GetProfileHeatmapResponse.parse(results));
-});
+    res.json(GetProfileHeatmapResponse.parse(results));
+  },
+);
 
 export default router;

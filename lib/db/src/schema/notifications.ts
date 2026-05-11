@@ -26,12 +26,16 @@ export const notificationsTable = pgTable("notifications", {
   submissionId: text("submission_id"),
   /** Whether the user has read this notification */
   read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   /** When the problem was actually solved on LeetCode */
   solvedAt: timestamp("solved_at", { withTimezone: true }),
 });
 
-export const insertNotificationSchema = createInsertSchema(notificationsTable).omit({
+export const insertNotificationSchema = createInsertSchema(
+  notificationsTable,
+).omit({
   id: true,
   createdAt: true,
 });

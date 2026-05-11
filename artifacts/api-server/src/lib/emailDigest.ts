@@ -12,7 +12,16 @@
  * The email is plain HTML; no external template engine is required.
  */
 
-import { db, followsTable, solvedProblemsTable, eq, gte, lte, and, inArray } from "@workspace/db";
+import {
+  db,
+  followsTable,
+  solvedProblemsTable,
+  eq,
+  gte,
+  lte,
+  and,
+  inArray,
+} from "@workspace/db";
 
 import { clerkClient } from "@clerk/express";
 import { logger } from "./logger";
@@ -33,15 +42,32 @@ export async function sendDailyDigests(userIds: string[]): Promise<void> {
   // Define "today" as midnight→midnight in UTC
   const now = new Date();
   const startOfDay = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0),
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0,
+      0,
+      0,
+    ),
   );
   const endOfDay = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59),
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      23,
+      59,
+      59,
+    ),
   );
 
   // 1. Load follow relationships only for the target users
   const allFollows = await db
-    .select({ userId: followsTable.userId, leetcodeUsername: followsTable.leetcodeUsername })
+    .select({
+      userId: followsTable.userId,
+      leetcodeUsername: followsTable.leetcodeUsername,
+    })
     .from(followsTable)
     .where(inArray(followsTable.userId, userIds));
 
@@ -102,12 +128,18 @@ export async function sendDailyDigests(userIds: string[]): Promise<void> {
         (e) => e.id === clerkUser.primaryEmailAddressId,
       );
       if (!primaryEmail?.emailAddress) {
-        logger.warn({ userId }, "No primary email found for user — skipping digest");
+        logger.warn(
+          { userId },
+          "No primary email found for user — skipping digest",
+        );
         continue;
       }
       toEmail = primaryEmail.emailAddress;
     } catch (err) {
-      logger.error({ err, userId }, "Failed to fetch user email from Clerk — skipping digest");
+      logger.error(
+        { err, userId },
+        "Failed to fetch user email from Clerk — skipping digest",
+      );
       continue;
     }
 
@@ -127,11 +159,20 @@ export async function sendDailyDigests(userIds: string[]): Promise<void> {
 function buildDigestHtml(
   userId: string,
   followedUsernames: string[],
-  solvesByUser: Map<string, { problemTitle: string; difficulty: string; problemSlug: string; solvedAt: Date }[]>,
+  solvesByUser: Map<
+    string,
+    {
+      problemTitle: string;
+      difficulty: string;
+      problemSlug: string;
+      solvedAt: Date;
+    }[]
+  >,
 ): string {
   const rows = followedUsernames.flatMap((username) => {
     const solves = solvesByUser.get(username) ?? [];
-    return solves.map((s) => `
+    return solves.map(
+      (s) => `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">
           <strong>${escapeHtml(username)}</strong>
@@ -147,7 +188,8 @@ function buildDigestHtml(
         <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;">
           ${s.solvedAt.toUTCString()}
         </td>
-      </tr>`);
+      </tr>`,
+    );
   });
 
   return `<!DOCTYPE html>
@@ -213,7 +255,10 @@ async function sendEmail({
 
   if (!apiKey) {
     // Development mode — log instead of sending
-    logger.info({ to, subject }, "RESEND_API_KEY not set — digest email logged only");
+    logger.info(
+      { to, subject },
+      "RESEND_API_KEY not set — digest email logged only",
+    );
     return;
   }
 

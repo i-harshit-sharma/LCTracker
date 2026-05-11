@@ -4,16 +4,20 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, "../../artifacts/api-server/.env") });
+dotenv.config({
+  path: path.resolve(__dirname, "../../artifacts/api-server/.env"),
+});
 
 // Use dynamic imports to ensure dotenv.config() executes before lib/db/src/index.ts is loaded
-const { db, leetcodeProfilesTable, solvedProblemsTable, eq } = await import("@workspace/db");
-const { backfillUserProblems } = await import("../../artifacts/api-server/src/lib/poller");
+const { db, leetcodeProfilesTable, solvedProblemsTable, eq } =
+  await import("@workspace/db");
+const { backfillUserProblems } =
+  await import("../../artifacts/api-server/src/lib/poller");
 const { logger } = await import("../../artifacts/api-server/src/lib/logger");
 
 /**
  * Manual Recalculation Script
- * 
+ *
  * This script iterates through all users in the leetcode_profiles table,
  * deletes their existing solved_problems records (to clear any bad data),
  * and re-runs the backfill process to fetch fresh data with correct timestamps.
@@ -25,7 +29,7 @@ async function main() {
   const profiles = await db
     .select({ username: leetcodeProfilesTable.username })
     .from(leetcodeProfilesTable);
-    
+
   const usernames = profiles.map((p) => p.username);
   logger.info({ count: usernames.length }, "Found users to recalculate");
 

@@ -8,7 +8,19 @@
 
 import { Router, type IRouter } from "express";
 
-import { db, followsTable, solvedProblemsTable, leetcodeProfilesTable, eq, desc, gte, lt, inArray, and, sql } from "@workspace/db";
+import {
+  db,
+  followsTable,
+  solvedProblemsTable,
+  leetcodeProfilesTable,
+  eq,
+  desc,
+  gte,
+  lt,
+  inArray,
+  and,
+  sql,
+} from "@workspace/db";
 import {
   ListActivityResponse,
   ListActivityQueryParams,
@@ -26,7 +38,8 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
 
   const qp = ListActivityQueryParams.safeParse(req.query);
   const limit = qp.success && qp.data.limit ? Math.min(qp.data.limit, 100) : 50;
-  const myUsername = qp.success && qp.data.myUsername ? qp.data.myUsername : null;
+  const myUsername =
+    qp.success && qp.data.myUsername ? qp.data.myUsername : null;
 
   // Get all usernames followed by this user
   const followed = await db
@@ -57,7 +70,10 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
       displayName: leetcodeProfilesTable.displayName,
     })
     .from(solvedProblemsTable)
-    .leftJoin(leetcodeProfilesTable, eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username))
+    .leftJoin(
+      leetcodeProfilesTable,
+      eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username),
+    )
     .where(inArray(solvedProblemsTable.leetcodeUsername, usernames))
     .orderBy(desc(solvedProblemsTable.solvedAt))
     .limit(limit);
@@ -107,7 +123,9 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
 
   // Count today's unique solves
   const todayRows = await db
-    .select({ count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int` })
+    .select({
+      count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
+    })
     .from(solvedProblemsTable)
     .where(
       and(
@@ -118,7 +136,9 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
 
   // Count this week's unique solves
   const weekRows = await db
-    .select({ count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int` })
+    .select({
+      count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
+    })
     .from(solvedProblemsTable)
     .where(
       and(
@@ -152,14 +172,20 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
       count: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
     })
     .from(solvedProblemsTable)
-    .leftJoin(leetcodeProfilesTable, eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username))
+    .leftJoin(
+      leetcodeProfilesTable,
+      eq(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.username),
+    )
     .where(
       and(
         inArray(solvedProblemsTable.leetcodeUsername, usernames),
         gte(solvedProblemsTable.solvedAt, startOfWeek),
       ),
     )
-    .groupBy(solvedProblemsTable.leetcodeUsername, leetcodeProfilesTable.displayName)
+    .groupBy(
+      solvedProblemsTable.leetcodeUsername,
+      leetcodeProfilesTable.displayName,
+    )
     .orderBy(desc(sql`count(distinct ${solvedProblemsTable.problemSlug})`))
     .limit(1);
 
@@ -179,143 +205,158 @@ router.get("/activity/stats", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
-router.get("/activity/leaderboard", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as any).userId as string;
-  const { scope = "following", period = "week" } = req.query;
+router.get(
+  "/activity/leaderboard",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = (req as any).userId as string;
+    const { scope = "following", period = "week" } = req.query;
 
-  let users: {
-    leetcodeUsername: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    totalSolved: number | null;
-  }[] = [];
+    let users: {
+      leetcodeUsername: string;
+      displayName: string | null;
+      avatarUrl: string | null;
+      totalSolved: number | null;
+    }[] = [];
 
-  if (scope === "global") {
-    const allProfiles = await db
+    if (scope === "global") {
+      const allProfiles = await db
+        .select({
+          leetcodeUsername: leetcodeProfilesTable.username,
+          displayName: leetcodeProfilesTable.displayName,
+          avatarUrl: leetcodeProfilesTable.avatarUrl,
+          totalSolved: leetcodeProfilesTable.totalSolved,
+        })
+        .from(leetcodeProfilesTable);
+
+      users = allProfiles;
+    } else {
+      const followed = await db
+        .select({
+          leetcodeUsername: followsTable.leetcodeUsername,
+          displayName: leetcodeProfilesTable.displayName,
+          avatarUrl: leetcodeProfilesTable.avatarUrl,
+          totalSolved: leetcodeProfilesTable.totalSolved,
+        })
+        .from(followsTable)
+        .leftJoin(
+          leetcodeProfilesTable,
+          eq(followsTable.leetcodeUsername, leetcodeProfilesTable.username),
+        )
+        .where(eq(followsTable.userId, userId));
+
+      users = followed;
+    }
+
+    if (!users.length) {
+      res.json([]);
+      return;
+    }
+
+    const usernames = users.map((u) => u.leetcodeUsername);
+
+    // For "all" period sort by totalSolved from profile data (no DB count needed)
+    if (period === "all") {
+      const leaderboard = users
+        .map((u) => ({
+          leetcodeUsername: u.leetcodeUsername,
+          displayName: u.displayName ?? null,
+          avatarUrl: u.avatarUrl ?? null,
+          totalSolved: u.totalSolved ?? null,
+          solvedInPeriod: u.totalSolved ?? 0,
+        }))
+        .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
+        .slice(0, 50);
+
+      res.json(GetLeaderboardResponse.parse(serializeDates(leaderboard)));
+      return;
+    }
+
+    // Compute period start in UTC
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date | null = null;
+
+    if (period === "day") {
+      // "Day" starts at 12:00 AM UTC
+      periodStart = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+    } else if (typeof period === "string" && period.startsWith("week-")) {
+      // Expected format: week-YYYY-MM-DD
+      const datePart = period.replace("week-", "");
+      const parsed = new Date(datePart);
+      if (isNaN(parsed.getTime())) {
+        res.status(400).json({ error: "Invalid week date" });
+        return;
+      }
+      periodStart = new Date(
+        Date.UTC(
+          parsed.getUTCFullYear(),
+          parsed.getUTCMonth(),
+          parsed.getUTCDate(),
+        ),
+      );
+      periodEnd = new Date(periodStart);
+      periodEnd.setUTCDate(periodEnd.getUTCDate() + 7);
+    } else {
+      // "week" (default) — start of current Monday UTC
+      const startOfToday = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+      periodStart = new Date(startOfToday);
+      const day = periodStart.getUTCDay();
+      const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
+      periodStart.setUTCDate(periodStart.getUTCDate() - diff);
+    }
+
+    const dateFilters = [gte(solvedProblemsTable.solvedAt, periodStart)];
+    if (periodEnd) {
+      dateFilters.push(lt(solvedProblemsTable.solvedAt, periodEnd));
+    }
+
+    // Count solves per user within the selected period
+    const periodCounts = await db
       .select({
-        leetcodeUsername: leetcodeProfilesTable.username,
-        displayName: leetcodeProfilesTable.displayName,
-        avatarUrl: leetcodeProfilesTable.avatarUrl,
-        totalSolved: leetcodeProfilesTable.totalSolved,
+        leetcodeUsername: solvedProblemsTable.leetcodeUsername,
+        solvedInPeriod: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
       })
-      .from(leetcodeProfilesTable);
+      .from(solvedProblemsTable)
+      .where(
+        and(
+          inArray(solvedProblemsTable.leetcodeUsername, usernames),
+          ...dateFilters,
+        ),
+      )
+      .groupBy(solvedProblemsTable.leetcodeUsername);
 
-    users = allProfiles;
-  } else {
-    const followed = await db
-      .select({
-        leetcodeUsername: followsTable.leetcodeUsername,
-        displayName: leetcodeProfilesTable.displayName,
-        avatarUrl: leetcodeProfilesTable.avatarUrl,
-        totalSolved: leetcodeProfilesTable.totalSolved,
-      })
-      .from(followsTable)
-      .leftJoin(leetcodeProfilesTable, eq(followsTable.leetcodeUsername, leetcodeProfilesTable.username))
-      .where(eq(followsTable.userId, userId));
+    const countMap = new Map(
+      periodCounts.map((r) => [r.leetcodeUsername, r.solvedInPeriod]),
+    );
 
-    users = followed;
-  }
-
-  if (!users.length) {
-    res.json([]);
-    return;
-  }
-
-  const usernames = users.map((u) => u.leetcodeUsername);
-
-  // For "all" period sort by totalSolved from profile data (no DB count needed)
-  if (period === "all") {
     const leaderboard = users
       .map((u) => ({
         leetcodeUsername: u.leetcodeUsername,
         displayName: u.displayName ?? null,
         avatarUrl: u.avatarUrl ?? null,
         totalSolved: u.totalSolved ?? null,
-        solvedInPeriod: u.totalSolved ?? 0,
+        solvedInPeriod: countMap.get(u.leetcodeUsername) ?? 0,
       }))
       .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
       .slice(0, 50);
 
     res.json(GetLeaderboardResponse.parse(serializeDates(leaderboard)));
-    return;
-  }
 
-  // Compute period start in UTC
-  const now = new Date();
-  let periodStart: Date;
-  let periodEnd: Date | null = null;
-
-  if (period === "day") {
-    // "Day" starts at 12:00 AM UTC
-    periodStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-  } else if (typeof period === "string" && period.startsWith("week-")) {
-    // Expected format: week-YYYY-MM-DD
-    const datePart = period.replace("week-", "");
-    const parsed = new Date(datePart);
-    if (isNaN(parsed.getTime())) {
-      res.status(400).json({ error: "Invalid week date" });
-      return;
-    }
-    periodStart = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
-    periodEnd = new Date(periodStart);
-    periodEnd.setUTCDate(periodEnd.getUTCDate() + 7);
-  } else {
-    // "week" (default) — start of current Monday UTC
-    const startOfToday = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    periodStart = new Date(startOfToday);
-    const day = periodStart.getUTCDay();
-    const diff = day === 0 ? 6 : day - 1; // if Sunday, go back 6 to Monday
-    periodStart.setUTCDate(periodStart.getUTCDate() - diff);
-  }
-
-  const dateFilters = [gte(solvedProblemsTable.solvedAt, periodStart)];
-  if (periodEnd) {
-    dateFilters.push(lt(solvedProblemsTable.solvedAt, periodEnd));
-  }
-
-  // Count solves per user within the selected period
-  const periodCounts = await db
-    .select({
-      leetcodeUsername: solvedProblemsTable.leetcodeUsername,
-      solvedInPeriod: sql<number>`count(distinct ${solvedProblemsTable.problemSlug})::int`,
-    })
-    .from(solvedProblemsTable)
-    .where(
-      and(
-        inArray(solvedProblemsTable.leetcodeUsername, usernames),
-        ...dateFilters
-      ),
-    )
-    .groupBy(solvedProblemsTable.leetcodeUsername);
-
-  const countMap = new Map(periodCounts.map((r) => [r.leetcodeUsername, r.solvedInPeriod]));
-
-  const leaderboard = users
-    .map((u) => ({
-      leetcodeUsername: u.leetcodeUsername,
-      displayName: u.displayName ?? null,
-      avatarUrl: u.avatarUrl ?? null,
-      totalSolved: u.totalSolved ?? null,
-      solvedInPeriod: countMap.get(u.leetcodeUsername) ?? 0,
-    }))
-    .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
-    .slice(0, 50);
-
-  res.json(GetLeaderboardResponse.parse(serializeDates(leaderboard)));
-
-  posthog.capture({
-    distinctId: userId,
-    event: "Leaderboard Viewed",
-    properties: {
-      scope,
-      period,
-      count: leaderboard.length,
-    },
-  });
-});
+    posthog.capture({
+      distinctId: userId,
+      event: "Leaderboard Viewed",
+      properties: {
+        scope,
+        period,
+        count: leaderboard.length,
+      },
+    });
+  },
+);
 
 export default router;

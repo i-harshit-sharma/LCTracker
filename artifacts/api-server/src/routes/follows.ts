@@ -8,7 +8,14 @@
 
 import { Router, type IRouter } from "express";
 
-import { db, followsTable, leetcodeProfilesTable, eq, and, desc } from "@workspace/db";
+import {
+  db,
+  followsTable,
+  leetcodeProfilesTable,
+  eq,
+  and,
+  desc,
+} from "@workspace/db";
 import {
   ListFollowsResponse,
   CreateFollowBody,
@@ -37,7 +44,10 @@ router.get("/follows", requireAuth, async (req, res): Promise<void> => {
       lastPolledAt: leetcodeProfilesTable.lastPolledAt,
     })
     .from(followsTable)
-    .leftJoin(leetcodeProfilesTable, eq(followsTable.leetcodeUsername, leetcodeProfilesTable.username))
+    .leftJoin(
+      leetcodeProfilesTable,
+      eq(followsTable.leetcodeUsername, leetcodeProfilesTable.username),
+    )
     .where(eq(followsTable.userId, userId))
     .orderBy(desc(followsTable.createdAt));
 
@@ -90,7 +100,9 @@ router.post("/follows", requireAuth, async (req, res): Promise<void> => {
     // Not cached yet — fetch live and persist to shared cache
     const live = await getLeetCodeProfile(leetcodeUsername);
     if (!live) {
-      res.status(400).json({ error: "LeetCode username not found or profile is private" });
+      res
+        .status(400)
+        .json({ error: "LeetCode username not found or profile is private" });
       return;
     }
 
@@ -171,10 +183,7 @@ router.delete("/follows/:id", requireAuth, async (req, res): Promise<void> => {
   const [deleted] = await db
     .delete(followsTable)
     .where(
-      and(
-        eq(followsTable.id, params.data.id),
-        eq(followsTable.userId, userId),
-      ),
+      and(eq(followsTable.id, params.data.id), eq(followsTable.userId, userId)),
     )
     .returning();
 

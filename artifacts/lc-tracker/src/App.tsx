@@ -3,7 +3,13 @@ import { Loader2 } from "lucide-react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
-import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
+import {
+  Switch,
+  Route,
+  Redirect,
+  useLocation,
+  Router as WouterRouter,
+} from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -59,7 +65,8 @@ const clerkAppearance = {
   },
   elements: {
     rootBox: "w-full flex justify-center",
-    cardBox: "bg-[hsl(222,47%,10%)] border border-[hsl(217,33%,17%)] rounded-2xl w-[440px] max-w-full overflow-hidden shadow-2xl",
+    cardBox:
+      "bg-[hsl(222,47%,10%)] border border-[hsl(217,33%,17%)] rounded-2xl w-[440px] max-w-full overflow-hidden shadow-2xl",
     headerTitle: "text-[hsl(210,40%,95%)]",
     headerSubtitle: "text-[hsl(215,20%,55%)]",
     socialButtonsBlockButtonText: "text-[hsl(210,40%,95%)]",
@@ -103,7 +110,11 @@ function HomeRedirect() {
   );
 }
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoute({
+  component: Component,
+}: {
+  component: React.ComponentType;
+}) {
   return (
     <>
       <Show when="signed-in">
@@ -159,22 +170,46 @@ function Router() {
       <ClerkQueryClientCacheInvalidator />
       <Switch>
         <Route path="/" component={HomeRedirect} />
-        <Route path="/sign-in/*?" component={() => (
-          <div className="min-h-screen flex items-center justify-center bg-background">
-            <SignIn routing="path" path={`${basePath}/sign-in`} />
-          </div>
-        )} />
-        <Route path="/sign-up/*?" component={() => (
-          <div className="min-h-screen flex items-center justify-center bg-background">
-            <SignUp routing="path" path={`${basePath}/sign-up`} />
-          </div>
-        )} />
-        <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-        <Route path="/follows" component={() => <ProtectedRoute component={FollowsPage} />} />
-        <Route path="/notifications" component={() => <ProtectedRoute component={NotificationsPage} />} />
-        <Route path="/profiles/:username" component={() => <ProtectedRoute component={ProfilePage} />} />
-        <Route path="/skyline" component={() => <ProtectedRoute component={SkylinePage} />} />
-        <Route path="/create" component={() => <ProtectedRoute component={CreatePage} />} />
+        <Route
+          path="/sign-in/*?"
+          component={() => (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+              <SignIn routing="path" path={`${basePath}/sign-in`} />
+            </div>
+          )}
+        />
+        <Route
+          path="/sign-up/*?"
+          component={() => (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+              <SignUp routing="path" path={`${basePath}/sign-up`} />
+            </div>
+          )}
+        />
+        <Route
+          path="/dashboard"
+          component={() => <ProtectedRoute component={DashboardPage} />}
+        />
+        <Route
+          path="/follows"
+          component={() => <ProtectedRoute component={FollowsPage} />}
+        />
+        <Route
+          path="/notifications"
+          component={() => <ProtectedRoute component={NotificationsPage} />}
+        />
+        <Route
+          path="/profiles/:username"
+          component={() => <ProtectedRoute component={ProfilePage} />}
+        />
+        <Route
+          path="/skyline"
+          component={() => <ProtectedRoute component={SkylinePage} />}
+        />
+        <Route
+          path="/create"
+          component={() => <ProtectedRoute component={CreatePage} />}
+        />
         <Route component={NotFound} />
       </Switch>
     </ClerkProvider>

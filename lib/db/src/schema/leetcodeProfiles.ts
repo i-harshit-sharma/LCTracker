@@ -20,7 +20,9 @@ export const leetcodeProfilesTable = pgTable("leetcode_profiles", {
   followingJson: text("following_json"),
   /** Timestamp of the last successful profile+submissions poll */
   lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export type LeetcodeProfile = typeof leetcodeProfilesTable.$inferSelect;

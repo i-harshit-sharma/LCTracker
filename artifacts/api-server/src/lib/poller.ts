@@ -17,7 +17,17 @@
  * a newly followed user's historical solved problems at follow time.
  */
 
-import { db, followsTable, leetcodeProfilesTable, solvedProblemsTable, notificationsTable, scannerMetadataTable, eq, inArray, and } from "@workspace/db";
+import {
+  db,
+  followsTable,
+  leetcodeProfilesTable,
+  solvedProblemsTable,
+  notificationsTable,
+  scannerMetadataTable,
+  eq,
+  inArray,
+  and,
+} from "@workspace/db";
 
 import {
   getRecentAcceptedSubmissions,
@@ -58,7 +68,7 @@ export async function runPollCycle(): Promise<void> {
   isRunning = true;
   lastRunAt = new Date();
   logger.info("Starting LeetCode poll cycle");
-  
+
   const startTime = Date.now();
   posthog.capture({
     distinctId: "api-server",
@@ -189,7 +199,9 @@ async function pollUser(username: string): Promise<void> {
       : [];
 
   const existingSlugs = new Set(existing.map((r) => r.problemSlug));
-  const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
+  const newSubmissions = submissions.filter(
+    (s) => !existingSlugs.has(s.titleSlug),
+  );
 
   // Identify "Unknown" solves if profile counts increased more than the submissions we found
   const allNewSubmissions: LCSubmission[] = [];
@@ -252,7 +264,9 @@ async function pollUser(username: string): Promise<void> {
         }
       } else {
         // Profile stats are hidden/null (private user), fall back to accepting all detected public solves
-        allNewSubmissions.push(...newWithDiff.filter((s) => s.difficulty === difficulty));
+        allNewSubmissions.push(
+          ...newWithDiff.filter((s) => s.difficulty === difficulty),
+        );
       }
     }
   } else {
@@ -260,8 +274,6 @@ async function pollUser(username: string): Promise<void> {
     // Accept all new public submissions detected.
     allNewSubmissions.push(...newSubmissions);
   }
-
-
 
   if (!allNewSubmissions.length) {
     logger.debug({ username }, "No new solved problems detected");
@@ -278,7 +290,7 @@ async function pollUser(username: string): Promise<void> {
     event: "New Solved Problems Detected",
     properties: {
       count: allNewSubmissions.length,
-      problems: allNewSubmissions.map(s => s.title),
+      problems: allNewSubmissions.map((s) => s.title),
     },
   });
 
@@ -292,7 +304,10 @@ async function pollUser(username: string): Promise<void> {
   );
 
   if (!recentRows.length) {
-    logger.debug({ username }, "New problems stored but none are recent enough for notifications");
+    logger.debug(
+      { username },
+      "New problems stored but none are recent enough for notifications",
+    );
     return;
   }
 
@@ -394,7 +409,7 @@ async function persistNewSubmissions(
 ) {
   const CHUNK_SIZE = 10;
   const rows = [];
-  
+
   for (let i = 0; i < newSubmissions.length; i += CHUNK_SIZE) {
     const chunk = newSubmissions.slice(i, i + CHUNK_SIZE);
     const chunkRows = await Promise.all(
@@ -449,7 +464,10 @@ export async function backfillUserProblems(username: string): Promise<void> {
   // Add a small buffer in case submissions arrive between profile fetch and AC list fetch
   const limit = Math.max(totalSolved + 10, 20);
 
-  logger.info({ username, totalSolved, limit }, "Fetching full submission history");
+  logger.info(
+    { username, totalSolved, limit },
+    "Fetching full submission history",
+  );
 
   const rawSubmissions = await getRecentAcceptedSubmissions(username, limit);
   // Step 2 — filter out slugs already stored in the DB
@@ -469,7 +487,9 @@ export async function backfillUserProblems(username: string): Promise<void> {
       : [];
 
   const existingSlugs = new Set(existing.map((r) => r.problemSlug));
-  const newSubmissions = submissions.filter((s) => !existingSlugs.has(s.titleSlug));
+  const newSubmissions = submissions.filter(
+    (s) => !existingSlugs.has(s.titleSlug),
+  );
 
   // Identify "Unknown" solves for backfill (if profile counts > found submissions)
   const allSubmissions = [...newSubmissions];
@@ -482,7 +502,10 @@ export async function backfillUserProblems(username: string): Promise<void> {
 
     // We need to know which problems we ALREADY have to accurately count the gap
     const dbSolves = await db
-      .select({ difficulty: solvedProblemsTable.difficulty, slug: solvedProblemsTable.problemSlug })
+      .select({
+        difficulty: solvedProblemsTable.difficulty,
+        slug: solvedProblemsTable.problemSlug,
+      })
       .from(solvedProblemsTable)
       .where(eq(solvedProblemsTable.leetcodeUsername, username));
 
@@ -520,7 +543,10 @@ export async function backfillUserProblems(username: string): Promise<void> {
   }
 
   if (!allSubmissions.length) {
-    logger.info({ username }, "All submissions already stored — backfill skipped");
+    logger.info(
+      { username },
+      "All submissions already stored — backfill skipped",
+    );
     return;
   }
 
@@ -557,12 +583,13 @@ async function updateLastScannedId(id: number) {
  * This identifies solves for any tracked user, even if their profile is private.
  */
 async function runGlobalScanner(): Promise<void> {
-  
   const sessionToken = process.env.LEETCODE_SESSION;
   const csrfToken = process.env.LEETCODE_CSRF_TOKEN;
 
   if (!sessionToken || !csrfToken) {
-    logger.info("Scanner skipped: LEETCODE_SESSION or LEETCODE_CSRF_TOKEN missing in .env");
+    logger.info(
+      "Scanner skipped: LEETCODE_SESSION or LEETCODE_CSRF_TOKEN missing in .env",
+    );
     return;
   }
 
@@ -585,18 +612,26 @@ async function runGlobalScanner(): Promise<void> {
     if (!currentMaxId) return;
 
     if (currentMaxId <= lastId) {
-      logger.debug({ lastId, currentMaxId }, "Scanner: No new submissions to scan");
+      logger.debug(
+        { lastId, currentMaxId },
+        "Scanner: No new submissions to scan",
+      );
       return;
     }
 
     const diffTotal = currentMaxId - lastId;
-    logger.info({ lastId, currentMaxId, totalToScan: diffTotal }, "Scanner: Starting scan range");
+    logger.info(
+      { lastId, currentMaxId, totalToScan: diffTotal },
+      "Scanner: Starting scan range",
+    );
 
     // 3. Gather every unique LeetCode username that anyone is following
     const followRows = await db
       .selectDistinct({ leetcodeUsername: followsTable.leetcodeUsername })
       .from(followsTable);
-    const trackedUsernames = new Set(followRows.map((r) => r.leetcodeUsername.toLowerCase()));
+    const trackedUsernames = new Set(
+      followRows.map((r) => r.leetcodeUsername.toLowerCase()),
+    );
 
     if (trackedUsernames.size === 0) {
       logger.info("Scanner: No users are being followed — skipping scan");
@@ -607,11 +642,20 @@ async function runGlobalScanner(): Promise<void> {
     const MAX_IDS_PER_CYCLE = 3000;
     let processedCount = 0;
 
-    for (let id = lastId + 1; id <= currentMaxId && processedCount < MAX_IDS_PER_CYCLE; id++) {
+    for (
+      let id = lastId + 1;
+      id <= currentMaxId && processedCount < MAX_IDS_PER_CYCLE;
+      id++
+    ) {
       if (processedCount % 100 === 0) {
         const remaining = currentMaxId - id;
         logger.info(
-          { id, processed: processedCount, remaining, progress: `${((processedCount / diffTotal) * 100).toFixed(1)}%` },
+          {
+            id,
+            processed: processedCount,
+            remaining,
+            progress: `${((processedCount / diffTotal) * 100).toFixed(1)}%`,
+          },
           "Scanner: Progress check",
         );
       }
@@ -621,7 +665,10 @@ async function runGlobalScanner(): Promise<void> {
         if (details && details.statusCode === 10) {
           const username = details.user.username.toLowerCase();
           if (trackedUsernames.has(username)) {
-            logger.info({ id, username, problem: details.question.titleSlug }, "Scanner: MATCH FOUND!");
+            logger.info(
+              { id, username, problem: details.question.titleSlug },
+              "Scanner: MATCH FOUND!",
+            );
             await handleScannerFoundSolve(details.user.username, {
               id: id.toString(),
               title: details.question.title,
@@ -631,7 +678,6 @@ async function runGlobalScanner(): Promise<void> {
           }
         }
       } catch (err) {
-
         if (err instanceof LeetCodeAuthError) {
           posthog.capture({
             distinctId: "api-server",
@@ -671,7 +717,10 @@ async function runGlobalScanner(): Promise<void> {
  * Processes a single solve identified by the global scanner.
  * Stores the problem and sends notifications.
  */
-async function handleScannerFoundSolve(username: string, submission: LCSubmission) {
+async function handleScannerFoundSolve(
+  username: string,
+  submission: LCSubmission,
+) {
   const difficulty = await getProblemDifficulty(submission.titleSlug);
 
   const row = {
@@ -727,7 +776,6 @@ async function handleScannerFoundSolve(username: string, submission: LCSubmissio
     ),
   );
 }
-
 
 /**
  * Starts the background polling loop.

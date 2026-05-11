@@ -1,4 +1,10 @@
-import { pgTable, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  boolean,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -37,13 +43,18 @@ export const userPreferencesTable = pgTable("user_preferences", {
   /** Whether the user has completed the onboarding product tour. */
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
 
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-export const insertUserPreferencesSchema = createInsertSchema(userPreferencesTable).omit({
+export const insertUserPreferencesSchema = createInsertSchema(
+  userPreferencesTable,
+).omit({
   updatedAt: true,
 });
-export const selectUserPreferencesSchema = createSelectSchema(userPreferencesTable);
+export const selectUserPreferencesSchema =
+  createSelectSchema(userPreferencesTable);
 
 export type UserPreferences = typeof userPreferencesTable.$inferSelect;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;

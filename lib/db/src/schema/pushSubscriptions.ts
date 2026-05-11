@@ -1,4 +1,10 @@
-import { pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -19,16 +25,22 @@ export const pushSubscriptionsTable = pgTable(
     p256dh: text("p256dh").notNull(),
     /** Auth secret from the PushSubscription (base64url) */
     auth: text("auth").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => ({
     endpointIdx: uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
   }),
 );
 
-export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptionsTable).omit({
+export const insertPushSubscriptionSchema = createInsertSchema(
+  pushSubscriptionsTable,
+).omit({
   id: true,
   createdAt: true,
 });
-export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type InsertPushSubscription = z.infer<
+  typeof insertPushSubscriptionSchema
+>;
 export type PushSubscription = typeof pushSubscriptionsTable.$inferSelect;

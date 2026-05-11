@@ -39,7 +39,11 @@ router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
           )
         : eq(notificationsTable.userId, userId),
     )
-    .orderBy(desc(sql`COALESCE(${notificationsTable.solvedAt}, ${notificationsTable.createdAt})`));
+    .orderBy(
+      desc(
+        sql`COALESCE(${notificationsTable.solvedAt}, ${notificationsTable.createdAt})`,
+      ),
+    );
 
   res.json(ListNotificationsResponse.parse(serializeDates(rows)));
 
@@ -53,63 +57,73 @@ router.get("/notifications", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
-router.put("/notifications/read-all", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as any).userId as string;
+router.put(
+  "/notifications/read-all",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = (req as any).userId as string;
 
-  await db
-    .update(notificationsTable)
-    .set({ read: true })
-    .where(
-      and(
-        eq(notificationsTable.userId, userId),
-        eq(notificationsTable.read, false),
-      ),
-    );
+    await db
+      .update(notificationsTable)
+      .set({ read: true })
+      .where(
+        and(
+          eq(notificationsTable.userId, userId),
+          eq(notificationsTable.read, false),
+        ),
+      );
 
-  res.json({ success: true });
+    res.json({ success: true });
 
-  posthog.capture({
-    distinctId: userId,
-    event: "Notifications Marked Read-All",
-  });
-});
+    posthog.capture({
+      distinctId: userId,
+      event: "Notifications Marked Read-All",
+    });
+  },
+);
 
-router.put("/notifications/:id/read", requireAuth, async (req, res): Promise<void> => {
-  const userId = (req as any).userId as string;
+router.put(
+  "/notifications/:id/read",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = (req as any).userId as string;
 
-  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const params = MarkNotificationReadParams.safeParse({ id: rawId });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid id" });
-    return;
-  }
+    const rawId = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+    const params = MarkNotificationReadParams.safeParse({ id: rawId });
+    if (!params.success) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
 
-  const [updated] = await db
-    .update(notificationsTable)
-    .set({ read: true })
-    .where(
-      and(
-        eq(notificationsTable.id, params.data.id),
-        eq(notificationsTable.userId, userId), // only the owner can mark it read
-      ),
-    )
-    .returning();
+    const [updated] = await db
+      .update(notificationsTable)
+      .set({ read: true })
+      .where(
+        and(
+          eq(notificationsTable.id, params.data.id),
+          eq(notificationsTable.userId, userId), // only the owner can mark it read
+        ),
+      )
+      .returning();
 
-  if (!updated) {
-    res.status(404).json({ error: "Notification not found" });
-    return;
-  }
+    if (!updated) {
+      res.status(404).json({ error: "Notification not found" });
+      return;
+    }
 
-  res.json(MarkNotificationReadResponse.parse(serializeDates(updated)));
+    res.json(MarkNotificationReadResponse.parse(serializeDates(updated)));
 
-  posthog.capture({
-    distinctId: userId,
-    event: "Notification Marked Read",
-    properties: {
-      notificationId: updated.id,
-      problemSlug: updated.problemSlug,
-    },
-  });
-});
+    posthog.capture({
+      distinctId: userId,
+      event: "Notification Marked Read",
+      properties: {
+        notificationId: updated.id,
+        problemSlug: updated.problemSlug,
+      },
+    });
+  },
+);
 
 export default router;

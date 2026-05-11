@@ -149,7 +149,8 @@ async function gqlRequest<T>(
 
   const headers: Record<string, string> = { ...HEADERS };
   if (leetcodeSession && csrfToken) {
-    headers["Cookie"] = `LEETCODE_SESSION=${leetcodeSession}; csrftoken=${csrfToken};`;
+    headers["Cookie"] =
+      `LEETCODE_SESSION=${leetcodeSession}; csrftoken=${csrfToken};`;
     headers["x-csrftoken"] = csrfToken;
   }
 
@@ -173,7 +174,9 @@ async function gqlRequest<T>(
           delay *= 2; // exponential back-off
           continue;
         }
-        throw new Error(`LeetCode API returned ${res.status} after ${retries} retries`);
+        throw new Error(
+          `LeetCode API returned ${res.status} after ${retries} retries`,
+        );
       }
 
       if (!res.ok) {
@@ -190,9 +193,13 @@ async function gqlRequest<T>(
             e.message?.toLowerCase().includes("sign in"),
         );
         if (isAuthError) {
-          throw new LeetCodeAuthError(`LeetCode session expired or invalid: ${json.errors[0].message}`);
+          throw new LeetCodeAuthError(
+            `LeetCode session expired or invalid: ${json.errors[0].message}`,
+          );
         }
-        throw new Error(`LeetCode GraphQL errors: ${JSON.stringify(json.errors)}`);
+        throw new Error(
+          `LeetCode GraphQL errors: ${JSON.stringify(json.errors)}`,
+        );
       }
       return json.data as T;
     } catch (err) {
@@ -233,7 +240,9 @@ export async function getRecentAcceptedSubmissions(
  * Fetches public profile metadata for a LeetCode username.
  * Returns null if the user doesn't exist or the request fails.
  */
-export async function getLeetCodeProfile(username: string): Promise<LCProfile | null> {
+export async function getLeetCodeProfile(
+  username: string,
+): Promise<LCProfile | null> {
   try {
     const data = await gqlRequest<{
       matchedUser: {
@@ -254,7 +263,8 @@ export async function getLeetCodeProfile(username: string): Promise<LCProfile | 
     const { matchedUser } = data;
     const isPrivate = !matchedUser.profile; // Simplistic check, if no profile object, it's private or deleted
     const stats = matchedUser.submitStats?.acSubmissionNum ?? [];
-    const getCount = (d: string) => stats.find((s) => s.difficulty === d)?.count ?? null;
+    const getCount = (d: string) =>
+      stats.find((s) => s.difficulty === d)?.count ?? null;
 
     return {
       username: matchedUser.username,

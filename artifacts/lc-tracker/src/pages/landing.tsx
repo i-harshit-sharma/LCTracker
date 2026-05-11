@@ -9,32 +9,38 @@ const features = [
   {
     icon: Activity,
     title: "Live Activity Feed",
-    description: "Watch the problems your network solves in real time. Every accepted submission appears instantly.",
+    description:
+      "Watch the problems your network solves in real time. Every accepted submission appears instantly.",
   },
   {
     icon: Bell,
     title: "Instant Notifications",
-    description: "Get notified the moment someone you follow cracks a Hard problem. Never miss a grinding session.",
+    description:
+      "Get notified the moment someone you follow cracks a Hard problem. Never miss a grinding session.",
   },
   {
     icon: Trophy,
     title: "Weekly Leaderboard",
-    description: "See who's grinding hardest in your network ranked by weekly solve count. Stay competitive.",
+    description:
+      "See who's grinding hardest in your network ranked by weekly solve count. Stay competitive.",
   },
   {
     icon: BarChart3,
     title: "Progress Analytics",
-    description: "Track difficulty breakdowns — Easy, Medium, Hard — across everyone you follow at a glance.",
+    description:
+      "Track difficulty breakdowns — Easy, Medium, Hard — across everyone you follow at a glance.",
   },
   {
     icon: Users,
     title: "Follow Anyone",
-    description: "Follow any public LeetCode username. Friends, rivals, top performers — build your feed.",
+    description:
+      "Follow any public LeetCode username. Friends, rivals, top performers — build your feed.",
   },
   {
     icon: Zap,
     title: "Daily Digest Email",
-    description: "A summary of everything your network solved lands in your inbox at 11:59 PM every night.",
+    description:
+      "A summary of everything your network solved lands in your inbox at 11:59 PM every night.",
   },
 ];
 
@@ -57,13 +63,17 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/sign-up">
-              <Button size="sm" className="glow-orange" data-testid="link-sign-up">
+              <Button
+                size="sm"
+                className="glow-orange"
+                data-testid="link-sign-up"
+              >
                 Get started
               </Button>
             </Link>
-            <a 
-              href="https://github.com/i-harshit-sharma/LCTracker" 
-              target="_blank" 
+            <a
+              href="https://github.com/i-harshit-sharma/LCTracker"
+              target="_blank"
               rel="noreferrer"
               className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="GitHub Repository"
@@ -91,12 +101,21 @@ export default function LandingPage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/sign-up">
-            <Button size="lg" className="glow-orange w-full sm:w-auto" data-testid="hero-cta">
+            <Button
+              size="lg"
+              className="glow-orange w-full sm:w-auto"
+              data-testid="hero-cta"
+            >
               Start tracking for free
             </Button>
           </Link>
           <Link href="/sign-in">
-            <Button size="lg" variant="outline" className="w-full sm:w-auto" data-testid="hero-sign-in">
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full sm:w-auto"
+              data-testid="hero-sign-in"
+            >
               Sign in
             </Button>
           </Link>
@@ -136,7 +155,9 @@ export default function LandingPage() {
                 <Icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="font-semibold text-base mb-2">{title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {description}
+              </p>
             </div>
           ))}
         </div>
@@ -167,16 +188,18 @@ export default function LandingPage() {
             <span>LCTracker — not affiliated with LeetCode</span>
           </div>
           <div className="flex items-center gap-4">
-            <a 
-              href="https://github.com/i-harshit-sharma/LCTracker" 
-              target="_blank" 
+            <a
+              href="https://github.com/i-harshit-sharma/LCTracker"
+              target="_blank"
               rel="noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
             >
               <SiGithub className="h-4 w-4" />
               Source Code
             </a>
-            <span className="text-xs opacity-50">v{process.env.APP_VERSION}</span>
+            <span className="text-xs opacity-50">
+              v{process.env.APP_VERSION}
+            </span>
           </div>
         </div>
       </footer>

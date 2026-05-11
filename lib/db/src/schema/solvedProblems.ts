@@ -1,4 +1,10 @@
-import { pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -24,7 +30,9 @@ export const solvedProblemsTable = pgTable(
     /** LeetCode submission ID */
     submissionId: text("submission_id"),
     /** When our system recorded it */
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("solved_problems_username_slug_idx").on(
@@ -34,7 +42,9 @@ export const solvedProblemsTable = pgTable(
   ],
 );
 
-export const insertSolvedProblemSchema = createInsertSchema(solvedProblemsTable).omit({
+export const insertSolvedProblemSchema = createInsertSchema(
+  solvedProblemsTable,
+).omit({
   id: true,
   createdAt: true,
 });

@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -12,22 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10
-          
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - run: pnpm install --no-frozen-lockfile
-      
+
       # 1. Lint & Typecheck
       - run: pnpm run lint
       - run: pnpm -r exec tsc --noEmit
-      
+
       # 2. Contract Check
       - run: pnpm run generate:api
       - run: git diff --exit-code
