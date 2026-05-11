@@ -13,7 +13,8 @@ export function OnboardingTour() {
   const isTourEnabled = useFeatureFlagEnabled("tour");
 
   useEffect(() => {
-    if (!isLoading && prefs && !prefs.onboardingCompleted && isTourEnabled) {
+    const preferences = prefs as any;
+    if (!isLoading && preferences && !preferences.onboardingCompleted && isTourEnabled) {
       setRun(true);
     }
   }, [isLoading, prefs, isTourEnabled]);
