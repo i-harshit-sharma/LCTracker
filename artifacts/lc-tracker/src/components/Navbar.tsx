@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Bell, Users, LayoutDashboard, LogOut, User } from "lucide-react";
+import { Bell, Users, LayoutDashboard, LogOut, User, Map as MapIcon } from "lucide-react";
 import { SiLeetcode } from "react-icons/si";
 import { useUser, useClerk } from "@clerk/react";
 import { useListNotifications, getListNotificationsQueryKey } from "@workspace/api-client-react";
@@ -32,6 +32,7 @@ export function Navbar() {
 
   const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/skyline", icon: MapIcon, label: "Skyline" },
     { href: "/follows", icon: Users, label: "Following" },
     { href: "/notifications", icon: Bell, label: "Notifications", badge: unreadCount },
   ];
