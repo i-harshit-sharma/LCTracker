@@ -9,6 +9,7 @@ jobs:
   deploy:
     name: Trigger Deploy API
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Send Deployment Request
         run: |

@@ -148,7 +148,7 @@ export function PredictionsGraph() {
       return { chartData: [], events: [], stats: [], challenge: null };
     }
 
-    const targetDate = new Date("2026-07-15");
+    const targetDate = new Date("2026-06-15");
     const daysRemaining = Math.max(1, differenceInDays(targetDate, new Date()));
 
     // Calculate average velocity for each user across historical weeks
@@ -213,7 +213,7 @@ export function PredictionsGraph() {
         requiredDailyRate,
         overtakeDate
       };
-    }).sort((a, b) => b.growthRate - a.growthRate);
+    }).sort((a, b) => b.velocity - a.velocity);
 
     // Generate chart data
     const totalWeeks = 8;
@@ -418,39 +418,6 @@ export function PredictionsGraph() {
         </div>
       </CardHeader>
       <CardContent className="pt-6">
-        {challenge && (
-          <div className="mb-8 p-4 rounded-xl bg-primary/10 border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                <TrendingUp className="h-6 w-6" />
-              </div>
-              <div>
-                <h4 className="font-bold text-foreground">Target: Overtake @{challenge.leaderUsername}</h4>
-                <p className="text-xs text-muted-foreground">Required effort to become #1 in 8 weeks</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-8">
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Required Growth</p>
-                <p className="text-xl font-black text-primary">+{challenge.neededGrowthRate.toFixed(2)}%</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Target Velocity</p>
-                <p className="text-xl font-black text-foreground">{challenge.neededVelocity.toFixed(1)}<span className="text-xs font-normal text-muted-foreground ml-1">/wk</span></p>
-              </div>
-              <div className="hidden md:block h-10 w-px bg-border" />
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Required Daily</p>
-                <p className="text-xl font-black text-emerald-500">
-                  {challenge.neededDailyVelocity.toFixed(2)}
-                  <span className="text-xs font-normal text-muted-foreground ml-1">/day</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="h-100 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={predictionData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -511,8 +478,16 @@ export function PredictionsGraph() {
                         : stat.username === myUsername 
                           ? "bg-primary/10 border-primary/30 ring-1 ring-primary/20 shadow-sm" 
                           : "bg-muted/30 border-border/50 hover:bg-muted/50 hover:border-border shadow-sm"
-                    }`}
+                    } relative`}
                   >
+                    {stat.overtakeDate && stat.username !== myUsername && (
+                      <div 
+                        className="absolute top-2 right-2 flex items-center gap-1"
+                        title={`On track to overtake by ${stat.overtakeDate}!`}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-2">
                       <span className={`text-xs font-bold truncate ${isVisible && stat.username === myUsername ? "text-primary" : "text-foreground"}`}>
                         @{stat.username}
@@ -558,7 +533,7 @@ export function PredictionsGraph() {
                         </>
                       ) : (
                         <>
-                          <span className="text-[9px] text-emerald-500/80 uppercase font-bold">To Beat (15 July)</span>
+                          <span className="text-[9px] text-emerald-500/80 uppercase font-bold">To Beat (15 June)</span>
                           <span className="text-[10px] font-bold text-emerald-500">
                             {stat.requiredDailyRate.toFixed(2)}/d
                           </span>
@@ -572,35 +547,6 @@ export function PredictionsGraph() {
           </div>
         )}
 
-        {overtakingEvents.filter(e => visibleUsers.has(e.user1) && visibleUsers.has(e.user2)).length > 0 && (
-          <div className="mt-8 space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2 px-1">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              Overtaking Alerts
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {overtakingEvents
-                .filter(e => visibleUsers.has(e.user1) && visibleUsers.has(e.user2))
-                .map((event, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 text-sm">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-foreground">
-                        <span className="text-primary">@{event.user1}</span> will overtake <span className="text-blue-400">@{event.user2}</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Estimated around {format(addWeeks(new Date(), event.week), "MMMM d, yyyy")}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                        Est. {Math.round(event.total)} solves
-                      </span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
