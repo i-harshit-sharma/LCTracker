@@ -53,7 +53,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Link href="/sign-in">
               <Button variant="ghost" size="sm" data-testid="link-sign-in">
-                Sin in
+                Sign in
               </Button>
             </Link>
             <Link href="/sign-up">
