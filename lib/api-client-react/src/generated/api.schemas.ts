@@ -142,6 +142,7 @@ export interface Preferences {
   isVerified?: boolean;
   /** @nullable */
   verificationToken?: string | null;
+  onboardingCompleted?: boolean;
 }
 
 export interface UpdatePreferencesBody {
@@ -150,6 +151,7 @@ export interface UpdatePreferencesBody {
   digestMinute?: number;
   /** @nullable */
   leetcodeUsername?: string | null;
+  onboardingCompleted?: boolean;
 }
 
 export interface SavePushSubscriptionBody {

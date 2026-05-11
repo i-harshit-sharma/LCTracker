@@ -673,6 +673,8 @@ components:
           type: boolean
         verificationToken:
           type: ["string", "null"]
+        onboardingCompleted:
+          type: boolean
       required:
         - userId
         - emailEnabled
@@ -691,6 +693,8 @@ components:
           type: integer
         leetcodeUsername:
           type: ["string", "null"]
+        onboardingCompleted:
+          type: boolean
 
     SavePushSubscriptionBody:
       type: object
