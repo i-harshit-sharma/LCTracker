@@ -1,13 +1,50 @@
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-import vitePrerender from "vite-plugin-prerender";
 
 const rawPort = process.env.PORT || "5173";
 const port = Number(rawPort);
 const basePath = process.env.BASE_PATH || "/";
+
+// Explicitly type the plugins array
+const plugins: PluginOption[] = [
+  react(),
+  tailwindcss({ optimize: false }),
+  runtimeErrorOverlay(),
+];
+
+// Use top-level await for dynamic imports (supported in type: module)
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.REPL_ID !== undefined
+) {
+  const { cartographer } = await import("@replit/vite-plugin-cartographer");
+  const { devBanner } = await import("@replit/vite-plugin-dev-banner");
+
+  plugins.push(
+    cartographer({
+      root: path.resolve(import.meta.dirname, ".."),
+    }),
+    devBanner(),
+  );
+}
+
+// Only load the prerenderer if we're not running tests
+if (!process.env.VITEST) {
+  try {
+    const { default: vitePrerender } = await import("vite-plugin-prerender");
+    plugins.push(
+      vitePrerender({
+        staticDir: path.join(import.meta.dirname, "dist/public"),
+        routes: ["/"],
+      }),
+    );
+  } catch (e) {
+    console.warn("Prerenderer could not be loaded:", e);
+  }
+}
 
 export default defineConfig({
   base: basePath,
@@ -16,30 +53,7 @@ export default defineConfig({
       process.env.npm_package_version || "0.0.0",
     ),
   },
-  plugins: [
-    react(),
-    tailwindcss({ optimize: false }),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, ".."),
-            }),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
-    vitePrerender({
-      // The directory your Vite build outputs to
-      staticDir: path.join(import.meta.dirname, "dist/public"),
-      // The exact routes you want converted to static HTML
-      routes: ["/"],
-    }),
-  ],
+  plugins,
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
