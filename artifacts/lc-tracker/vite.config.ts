@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import vitePrerender from "vite-plugin-prerender";
 
 const rawPort = process.env.PORT || "5173";
 const port = Number(rawPort);
@@ -32,6 +33,12 @@ export default defineConfig({
           ),
         ]
       : []),
+    vitePrerender({
+      // The directory your Vite build outputs to
+      staticDir: path.join(import.meta.dirname, "dist/public"),
+      // The exact routes you want converted to static HTML
+      routes: ["/"],
+    }),
   ],
   resolve: {
     alias: {
