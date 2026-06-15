@@ -69,6 +69,8 @@ interface ProcessedPredictionData {
   challenge: PredictionChallenge | null;
 }
 
+const colors = ["#f97316", "#06b6d4", "#10b981", "#6366f1", "#f43f5e"];
+
 export function PredictionsGraph() {
   const { data: prefs } = useGetPreferences();
   const myUsername = prefs?.leetcodeUsername;
@@ -376,29 +378,34 @@ export function PredictionsGraph() {
       const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
 
       return (
-        <div className="bg-slate-950/95 border border-slate-800 rounded-xl p-3 shadow-2xl backdrop-blur-sm min-w-[220px]">
-          <p className="text-[12px] font-bold mb-3 text-slate-400 flex items-center justify-between border-b border-slate-800 pb-2">
+        <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 shadow-xl min-w-[200px]">
+          <p className="text-[12px] font-bold mb-2 text-slate-400 flex items-center justify-between border-b border-slate-800 pb-1.5">
             <span>{label}</span>
             <span className="text-[10px] font-normal text-slate-500">
               Solves & Gap
             </span>
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {sortedPayload.map((entry: any, index: number) => {
               const gap = entry.value - myValue;
               const isMe = entry.dataKey === myUsername;
+              const originalIndex = Object.keys(predictionData[0])
+                .filter((k) => k !== "week")
+                .indexOf(entry.dataKey);
+              const colorIdx =
+                originalIndex >= 0 ? originalIndex % colors.length : 0;
               return (
                 <div
                   key={index}
                   className="flex items-center justify-between gap-3"
                 >
-                  <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
                     <div
                       className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ backgroundColor: entry.color }}
+                      style={{ backgroundColor: colors[colorIdx] }}
                     />
                     <span
-                      className={`text-[12px] truncate ${isMe ? "font-black text-primary" : "text-slate-200"}`}
+                      className={`text-[12px] truncate ${isMe ? "font-bold text-primary" : "text-slate-200"}`}
                     >
                       @{entry.dataKey}
                     </span>
@@ -478,8 +485,6 @@ export function PredictionsGraph() {
     );
   }
 
-  const colors = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#f43f5e"];
-
   return (
     <Card className="mt-8 overflow-hidden">
       <CardHeader className="border-b bg-muted/20 flex flex-row items-center justify-between space-y-0">
@@ -515,7 +520,7 @@ export function PredictionsGraph() {
         </div>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="h-100 w-full">
+        <div className="h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={predictionData}
@@ -523,22 +528,25 @@ export function PredictionsGraph() {
             >
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#334155"
+                stroke="#1e293b"
+                opacity={0.5}
                 vertical={false}
               />
               <XAxis
                 dataKey="week"
-                stroke="#94a3b8"
-                fontSize={12}
+                stroke="#64748b"
+                fontSize={11}
                 tickLine={false}
                 axisLine={false}
+                dy={8}
               />
               <YAxis
-                stroke="#94a3b8"
-                fontSize={12}
+                stroke="#64748b"
+                fontSize={11}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(val) => val.toLocaleString()}
+                dx={-8}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} />
@@ -549,15 +557,27 @@ export function PredictionsGraph() {
                     (k) => k !== "week",
                   );
                   const originalIndex = allUsernames.indexOf(username);
+                  const isMe = username === myUsername;
+                  const colorVal = colors[originalIndex % colors.length];
                   return (
                     <Line
                       key={username}
                       type="monotone"
                       dataKey={username}
-                      stroke={colors[originalIndex % colors.length]}
-                      strokeWidth={username === myUsername ? 4 : 2}
-                      dot={username === myUsername ? { r: 6 } : { r: 4 }}
-                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      stroke={colorVal}
+                      strokeWidth={isMe ? 3 : 2}
+                      dot={
+                        isMe
+                          ? { r: 3, fill: colorVal, stroke: colorVal }
+                          : false
+                      }
+                      activeDot={{
+                        r: 5,
+                        strokeWidth: 1.5,
+                        stroke: "#ffffff",
+                        fill: colorVal,
+                      }}
+                      connectNulls
                     />
                   );
                 })}
