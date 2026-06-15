@@ -47,7 +47,9 @@ import { sendPushNotificationsForUser } from "./pushNotification";
 import posthog from "./posthog";
 
 /** How often we run a full poll cycle, in milliseconds */
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5 * 60 * 1_000);
+const POLL_INTERVAL_MS = Number(
+  process.env.POLL_INTERVAL_MS ?? 15 * 60 * 1_000,
+);
 
 /** Only notify about problems solved in the last 10 minutes */
 const NOTIFICATION_THRESHOLD_MS = 10 * 60 * 1_000;
