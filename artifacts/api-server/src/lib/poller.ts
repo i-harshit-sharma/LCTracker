@@ -24,6 +24,7 @@ import {
   solvedProblemsTable,
   notificationsTable,
   scannerMetadataTable,
+  userPreferencesTable,
   eq,
   inArray,
   and,
@@ -92,6 +93,53 @@ export async function runPollCycle(): Promise<void> {
       }
       // Throttle: wait between users to respect LeetCode rate limits
       await sleep(INTER_USER_DELAY_MS);
+    }
+
+    // 1.5 Check if verified users have made their profiles private
+    try {
+      const verifiedUsers = await db
+        .select({
+          userId: userPreferencesTable.userId,
+          leetcodeUsername: userPreferencesTable.leetcodeUsername,
+        })
+        .from(userPreferencesTable)
+        .where(eq(userPreferencesTable.isVerified, true));
+
+      logger.info(
+        { count: verifiedUsers.length },
+        "Checking verified users' profiles",
+      );
+
+      for (const user of verifiedUsers) {
+        if (!user.leetcodeUsername) continue;
+        const profile = await getLeetCodeProfile(user.leetcodeUsername);
+        if (profile && profile.isPrivate) {
+          logger.info(
+            { username: user.leetcodeUsername, userId: user.userId },
+            "Verified user profile has become private. Unverifying user.",
+          );
+          await db
+            .update(userPreferencesTable)
+            .set({
+              isVerified: false,
+              verificationToken: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(userPreferencesTable.userId, user.userId));
+
+          posthog.capture({
+            distinctId: user.userId,
+            event: "User Unverified",
+            properties: {
+              leetcodeUsername: user.leetcodeUsername,
+              reason: "private_profile",
+            },
+          });
+        }
+        await sleep(INTER_USER_DELAY_MS);
+      }
+    } catch (err) {
+      logger.error({ err }, "Error checking verified users profile privacy");
     }
 
     // 2. Run the global brute-force scanner to catch missing private solves

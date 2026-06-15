@@ -35,10 +35,24 @@ if (
 if (!process.env.VITEST) {
   try {
     const { default: vitePrerender } = await import("vite-plugin-prerender");
+    const PuppeteerRenderer = (vitePrerender as any).PuppeteerRenderer;
+
     plugins.push(
       vitePrerender({
         staticDir: path.join(import.meta.dirname, "dist/public"),
         routes: ["/"],
+        server: {
+          port: 5173,
+          timeout: 60000, // Increased timeout for Puppeteer operations
+          // This tells Puppeteer to wait for the custom event dispatched by App.tsx
+          trigger: "prerender-trigger",
+        },
+        renderer: new PuppeteerRenderer({
+          // 1. Set to false so a real Chrome window pops up during the build
+          headless: false,
+          // 2. Force a hard 5-second wait (ignore events for now)
+          renderAfterTime: 5000,
+        }),
       }),
     );
   } catch (e) {

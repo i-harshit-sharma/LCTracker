@@ -219,6 +219,14 @@ function Router() {
 function App() {
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    // Tell the prerenderer to take the snapshot AFTER a delay.
+    // This gives Clerk time to resolve the "signed-out" state and mount the LandingPage.
+    const prerenderTimer = setTimeout(() => {
+      document.dispatchEvent(new Event("prerender-trigger"));
+    }, 1500);
+
+    // Cleanup timer on unmount
+    return () => clearTimeout(prerenderTimer);
   }, []);
 
   return (

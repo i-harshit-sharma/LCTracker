@@ -185,7 +185,7 @@ export function PredictionsGraph() {
       return { chartData: [], events: [], stats: [], challenge: null };
     }
 
-    const targetDate = new Date("2026-06-15");
+    const targetDate = new Date("2026-07-15");
     const daysRemaining = Math.max(1, differenceInDays(targetDate, new Date()));
 
     // Calculate average velocity for each user across historical weeks
@@ -678,7 +678,7 @@ export function PredictionsGraph() {
                       ) : (
                         <>
                           <span className="text-[9px] text-emerald-500/80 uppercase font-bold">
-                            To Beat (15 June)
+                            To Beat (15 July)
                           </span>
                           <span className="text-[10px] font-bold text-emerald-500">
                             {stat.requiredDailyRate.toFixed(2)}/d
