@@ -88,9 +88,15 @@ export interface LeaderboardEntry {
   solvedInPeriod: number;
   /** @nullable */
   totalSolved?: number | null;
-  /** @nullable */
+  /**
+   * ISO timestamp of the user's most recent accepted submission
+   * @nullable
+   */
   lastSolvedAt?: string | null;
-  /** @nullable */
+  /**
+   * Average hours between consecutive accepted submissions
+   * @nullable
+   */
   avgTimeBetweenSolves?: number | null;
 }
 

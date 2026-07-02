@@ -149,8 +149,14 @@ export const GetLeaderboardResponseItem = zod.object({
   avatarUrl: zod.string().nullish(),
   solvedInPeriod: zod.number(),
   totalSolved: zod.number().nullish(),
-  lastSolvedAt: zod.string().nullish(),
-  avgTimeBetweenSolves: zod.number().nullish(),
+  lastSolvedAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("ISO timestamp of the user's most recent accepted submission"),
+  avgTimeBetweenSolves: zod
+    .number()
+    .nullish()
+    .describe("Average hours between consecutive accepted submissions"),
 });
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);
 
