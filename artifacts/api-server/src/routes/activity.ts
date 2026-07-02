@@ -255,6 +255,64 @@ router.get(
 
     const usernames = users.map((u) => u.leetcodeUsername);
 
+    // ── Fetch per-user timing data for lastSolvedAt & avgTimeBetweenSolves ──
+    const lastSolvedRows = await db
+      .select({
+        leetcodeUsername: solvedProblemsTable.leetcodeUsername,
+        lastSolvedAt: sql<string>`max(${solvedProblemsTable.solvedAt})`,
+      })
+      .from(solvedProblemsTable)
+      .where(inArray(solvedProblemsTable.leetcodeUsername, usernames))
+      .groupBy(solvedProblemsTable.leetcodeUsername);
+
+    const lastSolvedMap = new Map(
+      lastSolvedRows.map((r) => [r.leetcodeUsername, r.lastSolvedAt]),
+    );
+
+    // Fetch recent solve timestamps (last 90 days) to compute average interval
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const recentSolves = await db
+      .select({
+        leetcodeUsername: solvedProblemsTable.leetcodeUsername,
+        solvedAt: solvedProblemsTable.solvedAt,
+      })
+      .from(solvedProblemsTable)
+      .where(
+        and(
+          inArray(solvedProblemsTable.leetcodeUsername, usernames),
+          gte(solvedProblemsTable.solvedAt, ninetyDaysAgo),
+        ),
+      )
+      .orderBy(
+        solvedProblemsTable.leetcodeUsername,
+        solvedProblemsTable.solvedAt,
+      );
+
+    // Group solve timestamps by user and compute average interval in hours
+    const avgTimeMap = new Map<string, number>();
+    const groupedSolves = new Map<string, Date[]>();
+    for (const row of recentSolves) {
+      const ts =
+        row.solvedAt instanceof Date ? row.solvedAt : new Date(row.solvedAt);
+      if (!groupedSolves.has(row.leetcodeUsername)) {
+        groupedSolves.set(row.leetcodeUsername, []);
+      }
+      groupedSolves.get(row.leetcodeUsername)!.push(ts);
+    }
+    for (const [username, timestamps] of groupedSolves) {
+      if (timestamps.length >= 2) {
+        let totalDiffMs = 0;
+        for (let i = 1; i < timestamps.length; i++) {
+          totalDiffMs += timestamps[i].getTime() - timestamps[i - 1].getTime();
+        }
+        const avgHours =
+          totalDiffMs / (timestamps.length - 1) / (1000 * 60 * 60);
+        avgTimeMap.set(username, Math.round(avgHours * 100) / 100);
+      }
+    }
+
     // For "all" period sort by totalSolved from profile data (no DB count needed)
     if (period === "all") {
       const leaderboard = users
@@ -264,6 +322,8 @@ router.get(
           avatarUrl: u.avatarUrl ?? null,
           totalSolved: u.totalSolved ?? null,
           solvedInPeriod: u.totalSolved ?? 0,
+          lastSolvedAt: lastSolvedMap.get(u.leetcodeUsername) ?? null,
+          avgTimeBetweenSolves: avgTimeMap.get(u.leetcodeUsername) ?? null,
         }))
         .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
         .slice(0, 50);
@@ -341,6 +401,8 @@ router.get(
         avatarUrl: u.avatarUrl ?? null,
         totalSolved: u.totalSolved ?? null,
         solvedInPeriod: countMap.get(u.leetcodeUsername) ?? 0,
+        lastSolvedAt: lastSolvedMap.get(u.leetcodeUsername) ?? null,
+        avgTimeBetweenSolves: avgTimeMap.get(u.leetcodeUsername) ?? null,
       }))
       .sort((a, b) => b.solvedInPeriod - a.solvedInPeriod)
       .slice(0, 50);

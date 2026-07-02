@@ -582,6 +582,13 @@ components:
           type: integer
         totalSolved:
           type: ["integer", "null"]
+        lastSolvedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: ISO timestamp of the user's most recent accepted submission
+        avgTimeBetweenSolves:
+          type: ["number", "null"]
+          description: Average hours between consecutive accepted submissions
       required:
         - leetcodeUsername
         - solvedInPeriod

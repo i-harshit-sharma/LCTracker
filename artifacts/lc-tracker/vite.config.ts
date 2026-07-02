@@ -48,8 +48,8 @@ if (!process.env.VITEST) {
           trigger: "prerender-trigger",
         },
         renderer: new PuppeteerRenderer({
-          // 1. Set to false so a real Chrome window pops up during the build
-          headless: false,
+          // 1. Run headlessly by default so server builds succeed. Override via PUPPETEER_HEADLESS=false if needed.
+          headless: process.env.PUPPETEER_HEADLESS !== "false",
           // 2. Force a hard 5-second wait (ignore events for now)
           renderAfterTime: 5000,
         }),

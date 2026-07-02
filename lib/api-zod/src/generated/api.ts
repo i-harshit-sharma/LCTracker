@@ -149,6 +149,8 @@ export const GetLeaderboardResponseItem = zod.object({
   avatarUrl: zod.string().nullish(),
   solvedInPeriod: zod.number(),
   totalSolved: zod.number().nullish(),
+  lastSolvedAt: zod.string().nullish(),
+  avgTimeBetweenSolves: zod.number().nullish(),
 });
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);
 

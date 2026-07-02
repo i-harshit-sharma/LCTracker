@@ -88,6 +88,10 @@ export interface LeaderboardEntry {
   solvedInPeriod: number;
   /** @nullable */
   totalSolved?: number | null;
+  /** @nullable */
+  lastSolvedAt?: string | null;
+  /** @nullable */
+  avgTimeBetweenSolves?: number | null;
 }
 
 export interface LeetcodeFollowingEntry {

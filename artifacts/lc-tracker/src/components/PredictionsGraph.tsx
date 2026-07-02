@@ -28,6 +28,9 @@ import {
   EyeOff,
   CheckSquare,
   Square,
+  Clock,
+  Timer,
+  CalendarDays,
 } from "lucide-react";
 import {
   subWeeks,
@@ -35,12 +38,13 @@ import {
   format,
   differenceInDays,
   addWeeks,
+  addDays,
 } from "date-fns";
 
 interface OvertakingEvent {
   user1: string;
   user2: string;
-  week: number;
+  day: number;
   total: number;
 }
 
@@ -50,8 +54,11 @@ interface UserStat {
   velocity: number;
   total: number;
   gap: number;
+  gapTrend: "closing" | "widening" | "stable";
   requiredDailyRate: number;
   overtakeDate: string | null;
+  lastSolvedAt: string | null;
+  avgTimeBetweenSolves: number | null;
 }
 
 interface PredictionChallenge {
@@ -79,6 +86,14 @@ export function PredictionsGraph() {
   const [hasInitializedVisibility, setHasInitializedVisibility] =
     useState(false);
   const [sortBy, setSortBy] = useState<"velocity" | "required">("velocity");
+  const [projectionDays, setProjectionDays] = useState(60);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Tick every second for the live "time since last solve" timer
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Generate keys for the last 3 weeks to calculate a moving average velocity
   const historicalWeeks = useMemo(() => {
@@ -244,6 +259,19 @@ export function PredictionsGraph() {
           (projectedTargetTotal - myTotal) / daysRemaining,
         );
 
+        // Determine gap trend: is the gap closing or widening relative to me?
+        let gapTrend: "closing" | "widening" | "stable" = "stable";
+        if (user.leetcodeUsername !== myUsername) {
+          const velocityDiff = targetDailyVelocity - myDailyVelocity;
+          if (velocityDiff > 0.01) {
+            // They're faster → gap is widening (bad for me)
+            gapTrend = "widening";
+          } else if (velocityDiff < -0.01) {
+            // I'm faster → gap is closing (good for me)
+            gapTrend = "closing";
+          }
+        }
+
         // Calculate overtake date if current speed is higher
         let overtakeDate = null;
         if (myDailyVelocity > targetDailyVelocity && gap > 0) {
@@ -261,8 +289,11 @@ export function PredictionsGraph() {
           velocity,
           total,
           gap,
+          gapTrend,
           requiredDailyRate,
           overtakeDate,
+          lastSolvedAt: user.lastSolvedAt ?? null,
+          avgTimeBetweenSolves: user.avgTimeBetweenSolves ?? null,
         };
       })
       .sort((a, b) => {
@@ -273,21 +304,22 @@ export function PredictionsGraph() {
         }
       });
 
-    // Generate chart data
-    const totalWeeks = 8;
+    // Generate chart data (daily projections)
+    const totalDays = projectionDays;
     const chartData = [];
-    const now = new Date();
-    for (let w = 0; w <= totalWeeks; w++) {
-      const date = addWeeks(now, w);
+    const currentDate = new Date();
+    for (let d = 0; d <= totalDays; d++) {
+      const date = addDays(currentDate, d);
       const dataPoint: any = {
-        week: w === 0 ? "Now" : format(date, "MMM d"),
+        day: d === 0 ? "Today" : format(date, "MMM d"),
         rawDate: date,
       };
       plottedUsers.forEach((user) => {
         const currentTotal = user.totalSolved || 0;
         const velocity = userVelocityMap.get(user.leetcodeUsername) || 0;
+        const dailyVelocity = velocity / 7;
         dataPoint[user.leetcodeUsername] = Math.round(
-          currentTotal + velocity * w,
+          currentTotal + dailyVelocity * d,
         );
       });
       chartData.push(dataPoint);
@@ -307,17 +339,20 @@ export function PredictionsGraph() {
 
         if (V1 === V2 || Math.abs(V1 - V2) < 0.1) continue;
 
-        const W = (T2 - T1) / (V1 - V2);
+        // Convert to daily velocities for day-based projections
+        const DV1 = V1 / 7;
+        const DV2 = V2 / 7;
+        const D = (T2 - T1) / (DV1 - DV2);
 
-        if (W > 0 && W <= 8) {
+        if (D > 0 && D <= projectionDays) {
           // Identify who is overtaking whom: the one with higher velocity was behind
-          const user1IsOvertaker = V1 > V2;
+          const user1IsOvertaker = DV1 > DV2;
 
           events.push({
             user1: user1IsOvertaker ? u1.leetcodeUsername : u2.leetcodeUsername,
             user2: user1IsOvertaker ? u2.leetcodeUsername : u1.leetcodeUsername,
-            week: W,
-            total: T1 + V1 * W,
+            day: D,
+            total: T1 + DV1 * D,
           });
         }
       }
@@ -360,6 +395,7 @@ export function PredictionsGraph() {
     historicalWeeks,
     myUsername,
     sortBy,
+    projectionDays,
   ]);
 
   const {
@@ -390,7 +426,7 @@ export function PredictionsGraph() {
               const gap = entry.value - myValue;
               const isMe = entry.dataKey === myUsername;
               const originalIndex = Object.keys(predictionData[0])
-                .filter((k) => k !== "week")
+                .filter((k) => k !== "day" && k !== "rawDate")
                 .indexOf(entry.dataKey);
               const colorIdx =
                 originalIndex >= 0 ? originalIndex % colors.length : 0;
@@ -414,13 +450,33 @@ export function PredictionsGraph() {
                     <span className="text-[12px] font-mono font-bold text-white">
                       {entry.value.toLocaleString()}
                     </span>
-                    {!isMe && (
-                      <span
-                        className={`text-[10px] font-bold min-w-[40px] text-right ${gap > 0 ? "text-orange-400" : "text-blue-400"}`}
-                      >
-                        {gap > 0 ? `+${gap}` : gap}
-                      </span>
-                    )}
+                    {!isMe &&
+                      (() => {
+                        const userStat = userStats.find(
+                          (s) => s.username === entry.dataKey,
+                        );
+                        const trend = userStat?.gapTrend || "stable";
+                        const colorClass =
+                          trend === "closing"
+                            ? "text-emerald-400"
+                            : trend === "widening"
+                              ? "text-red-400"
+                              : "text-slate-400";
+                        return (
+                          <span
+                            className={`text-[10px] font-bold min-w-[40px] text-right ${colorClass}`}
+                          >
+                            {gap > 0 ? `+${gap}` : gap}
+                            <span className="ml-0.5">
+                              {trend === "closing"
+                                ? "↓"
+                                : trend === "widening"
+                                  ? "↑"
+                                  : ""}
+                            </span>
+                          </span>
+                        );
+                      })()}
                     {isMe && (
                       <span className="text-[10px] font-bold text-primary min-w-[40px] text-right">
                         YOU
@@ -495,10 +551,27 @@ export function PredictionsGraph() {
           </CardTitle>
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
             <History className="h-3 w-3" />
-            Linear projections based on 3-week moving average velocity
+            Daily projections based on 3-week moving average velocity
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/50 border border-border/50">
+            {([15, 30, 60] as const).map((days) => {
+              const label = days === 60 ? "2 Months" : `${days} Days`;
+              return (
+                <Button
+                  key={days}
+                  variant={projectionDays === days ? "default" : "ghost"}
+                  size="sm"
+                  className={`h-7 text-[10px] px-2.5 ${projectionDays === days ? "shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setProjectionDays(days)}
+                >
+                  <CalendarDays className="h-3 w-3 mr-1" />
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -533,11 +606,14 @@ export function PredictionsGraph() {
                 vertical={false}
               />
               <XAxis
-                dataKey="week"
+                dataKey="day"
                 stroke="#64748b"
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}
+                interval={
+                  projectionDays <= 15 ? 1 : projectionDays <= 30 ? 3 : 7
+                }
                 dy={8}
               />
               <YAxis
@@ -551,10 +627,13 @@ export function PredictionsGraph() {
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} />
               {Object.keys(predictionData[0])
-                .filter((key) => key !== "week" && visibleUsers.has(key))
+                .filter(
+                  (key) =>
+                    key !== "day" && key !== "rawDate" && visibleUsers.has(key),
+                )
                 .map((username) => {
                   const allUsernames = Object.keys(predictionData[0]).filter(
-                    (k) => k !== "week",
+                    (k) => k !== "day" && k !== "rawDate",
                   );
                   const originalIndex = allUsernames.indexOf(username);
                   const isMe = username === myUsername;
@@ -661,11 +740,20 @@ export function PredictionsGraph() {
                         Gap
                       </span>
                       <span
-                        className={`text-[10px] font-bold ${stat.gap > 0 ? "text-orange-500" : stat.gap < 0 ? "text-blue-500" : "text-muted-foreground"}`}
+                        className={`text-[10px] font-bold ${stat.gap === 0 ? "text-muted-foreground" : stat.gapTrend === "closing" ? "text-emerald-500" : stat.gapTrend === "widening" ? "text-red-500" : "text-muted-foreground"}`}
                       >
                         {stat.gap === 0
                           ? "You"
                           : `${stat.gap > 0 ? "+" : ""}${stat.gap}`}
+                        {stat.gap !== 0 && (
+                          <span className="ml-0.5">
+                            {stat.gapTrend === "closing"
+                              ? "↓"
+                              : stat.gapTrend === "widening"
+                                ? "↑"
+                                : ""}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -674,6 +762,61 @@ export function PredictionsGraph() {
                       </span>
                       <span className="text-[10px] font-medium text-muted-foreground">
                         {stat.velocity.toFixed(1)}/wk
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-0.5">
+                        <Clock className="h-2.5 w-2.5" />
+                        Last Solve
+                      </span>
+                      <span
+                        className={`text-[10px] font-mono font-bold ${(() => {
+                          if (!stat.lastSolvedAt)
+                            return "text-muted-foreground";
+                          const diffH =
+                            (now - new Date(stat.lastSolvedAt).getTime()) /
+                            (1000 * 60 * 60);
+                          if (diffH < 24) return "text-emerald-500";
+                          if (diffH < 48) return "text-amber-500";
+                          return "text-red-500";
+                        })()}`}
+                      >
+                        {stat.lastSolvedAt
+                          ? (() => {
+                              const diffMs =
+                                now - new Date(stat.lastSolvedAt).getTime();
+                              const totalSeconds = Math.floor(diffMs / 1000);
+                              const days = Math.floor(totalSeconds / 86400);
+                              const hours = Math.floor(
+                                (totalSeconds % 86400) / 3600,
+                              );
+                              const mins = Math.floor(
+                                (totalSeconds % 3600) / 60,
+                              );
+                              const secs = totalSeconds % 60;
+                              if (days > 0)
+                                return `${days}d ${hours}h ${mins}m`;
+                              return `${hours}h ${mins}m ${secs}s`;
+                            })()
+                          : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-0.5">
+                        <Timer className="h-2.5 w-2.5" />
+                        Avg Time
+                      </span>
+                      <span className="text-[10px] font-mono font-medium text-muted-foreground">
+                        {stat.avgTimeBetweenSolves != null
+                          ? (() => {
+                              const h = stat.avgTimeBetweenSolves;
+                              if (h < 1) return `${Math.round(h * 60)}m`;
+                              if (h < 24) return `${h.toFixed(1)}h`;
+                              const days = Math.floor(h / 24);
+                              const rem = Math.round(h % 24);
+                              return `${days}d ${rem}h`;
+                            })()
+                          : "N/A"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-1 pt-1 border-t border-border/20">
