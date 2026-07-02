@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,8 @@ import {
   Clock,
   Timer,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   subWeeks,
@@ -95,11 +98,11 @@ export function PredictionsGraph() {
     return () => clearInterval(interval);
   }, []);
 
-  // Generate keys for the last 3 weeks to calculate a moving average velocity
+  // Generate keys for the last 6 weeks to calculate a moving average velocity and show history
   const historicalWeeks = useMemo(() => {
     const dates = [];
     const now = new Date();
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const date = subWeeks(now, i);
       const start = startOfWeek(date, { weekStartsOn: 1 }); // Monday
       dates.push(`week-${format(start, "yyyy-MM-dd")}`);
@@ -205,10 +208,10 @@ export function PredictionsGraph() {
     const targetDate = new Date("2026-07-15");
     const daysRemaining = Math.max(1, differenceInDays(targetDate, new Date()));
 
-    // Calculate average velocity for each user across historical weeks
+    // Calculate average velocity for each user across the last 3 weeks (moving average)
     const userVelocityMap = new Map<string, number>();
 
-    historicalQueries.forEach((query) => {
+    historicalQueries.slice(0, 3).forEach((query) => {
       const weekData = query.data as any[];
       if (Array.isArray(weekData)) {
         weekData.forEach((entry) => {
@@ -221,9 +224,9 @@ export function PredictionsGraph() {
       }
     });
 
-    // Divide by number of weeks to get average velocity
+    // Divide by 3 (moving average period) to get average velocity
     userVelocityMap.forEach((total, username) => {
-      userVelocityMap.set(username, total / historicalWeeks.length);
+      userVelocityMap.set(username, total / 3);
     });
 
     // Select users to plot: All followed users
@@ -304,10 +307,61 @@ export function PredictionsGraph() {
         }
       });
 
+    // Generate historical data points (from oldest to newest)
+    const historyPoints: any[] = [];
+    const weekDataList = historicalQueries.map((q) => (q.data as any[]) || []);
+
+    const getSolvedInPeriod = (data: any[], username: string) => {
+      const entry = data.find((e) => e.leetcodeUsername === username);
+      return entry ? entry.solvedInPeriod || 0 : 0;
+    };
+
+    const currentDate = new Date();
+
+    // We have weeks from index 0 (current week) to index 5 (oldest week).
+    // Let's generate historical points for Monday of each week.
+    for (let i = historicalWeeks.length - 1; i >= 0; i--) {
+      const monday = startOfWeek(subWeeks(currentDate, i), { weekStartsOn: 1 });
+      const diffDays = differenceInDays(currentDate, monday);
+
+      // Only add if it's strictly in the past (before Today)
+      if (diffDays > 0) {
+        const dataPoint: any = {
+          day: format(monday, "MMM d"),
+          rawDate: monday,
+          isHistorical: true,
+        };
+
+        plottedUsers.forEach((user) => {
+          const currentTotal = user.totalSolved || 0;
+          // Subtract solves from week 0 up to week i
+          let historicalSolved = 0;
+          for (let j = 0; j <= i; j++) {
+            historicalSolved += getSolvedInPeriod(
+              weekDataList[j],
+              user.leetcodeUsername,
+            );
+          }
+          dataPoint[user.leetcodeUsername] = Math.max(
+            0,
+            currentTotal - historicalSolved,
+          );
+        });
+
+        // Avoid adding duplicate dates
+        const isDuplicate = historyPoints.some(
+          (p) =>
+            format(p.rawDate, "yyyy-MM-dd") === format(monday, "yyyy-MM-dd"),
+        );
+        if (!isDuplicate) {
+          historyPoints.push(dataPoint);
+        }
+      }
+    }
+
     // Generate chart data (daily projections)
     const totalDays = projectionDays;
-    const chartData = [];
-    const currentDate = new Date();
+    const chartData = [...historyPoints];
     for (let d = 0; d <= totalDays; d++) {
       const date = addDays(currentDate, d);
       const dataPoint: any = {
@@ -405,6 +459,26 @@ export function PredictionsGraph() {
     challenge,
   } = processedData;
 
+  const [startIndex, setStartIndex] = useState(0);
+  const windowSize = 15;
+
+  const todayIndex = useMemo(() => {
+    return predictionData.findIndex((d) => d.day === "Today");
+  }, [predictionData]);
+
+  useEffect(() => {
+    if (predictionData.length > 0) {
+      const idx = todayIndex >= 0 ? todayIndex : 0;
+      const targetStart = Math.max(0, idx - 2);
+      const maxStart = Math.max(0, predictionData.length - windowSize);
+      setStartIndex(Math.min(targetStart, maxStart));
+    }
+  }, [predictionData, todayIndex]);
+
+  const visibleData = useMemo(() => {
+    return predictionData.slice(startIndex, startIndex + windowSize);
+  }, [predictionData, startIndex, windowSize]);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const myItem = payload.find((p: any) => p.dataKey === myUsername);
@@ -426,7 +500,9 @@ export function PredictionsGraph() {
               const gap = entry.value - myValue;
               const isMe = entry.dataKey === myUsername;
               const originalIndex = Object.keys(predictionData[0])
-                .filter((k) => k !== "day" && k !== "rawDate")
+                .filter(
+                  (k) => k !== "day" && k !== "rawDate" && k !== "isHistorical",
+                )
                 .indexOf(entry.dataKey);
               const colorIdx =
                 originalIndex >= 0 ? originalIndex % colors.length : 0;
@@ -543,7 +619,7 @@ export function PredictionsGraph() {
 
   return (
     <Card className="mt-8 overflow-hidden">
-      <CardHeader className="border-b bg-muted/20 flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 space-y-0">
         <div>
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
@@ -554,8 +630,8 @@ export function PredictionsGraph() {
             Daily projections based on 3-week moving average velocity
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/50 border border-border/50">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-lg bg-muted/50 border border-border/50">
             {([15, 30, 60] as const).map((days) => {
               const label = days === 60 ? "2 Months" : `${days} Days`;
               return (
@@ -593,75 +669,122 @@ export function PredictionsGraph() {
         </div>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="h-[360px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={predictionData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#1e293b"
-                opacity={0.5}
-                vertical={false}
-              />
-              <XAxis
-                dataKey="day"
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                interval={
-                  projectionDays <= 15 ? 1 : projectionDays <= 30 ? 3 : 7
-                }
-                dy={8}
-              />
-              <YAxis
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => val.toLocaleString()}
-                dx={-8}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} />
-              {Object.keys(predictionData[0])
-                .filter(
-                  (key) =>
-                    key !== "day" && key !== "rawDate" && visibleUsers.has(key),
-                )
-                .map((username) => {
-                  const allUsernames = Object.keys(predictionData[0]).filter(
-                    (k) => k !== "day" && k !== "rawDate",
-                  );
-                  const originalIndex = allUsernames.indexOf(username);
-                  const isMe = username === myUsername;
-                  const colorVal = colors[originalIndex % colors.length];
-                  return (
-                    <Line
-                      key={username}
-                      type="monotone"
-                      dataKey={username}
-                      stroke={colorVal}
-                      strokeWidth={isMe ? 3 : 2}
-                      dot={
-                        isMe
-                          ? { r: 3, fill: colorVal, stroke: colorVal }
-                          : false
-                      }
-                      activeDot={{
-                        r: 5,
-                        strokeWidth: 1.5,
-                        stroke: "#ffffff",
-                        fill: colorVal,
-                      }}
-                      connectNulls
-                    />
-                  );
-                })}
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full border-border/50 hover:bg-muted/50 transition-colors flex items-center justify-center"
+            onClick={() => setStartIndex((prev) => Math.max(0, prev - 2))}
+            disabled={startIndex === 0}
+            title="Move timescale left"
+          >
+            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
+
+          <div className="h-[360px] flex-1 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={visibleData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#1e293b"
+                  opacity={0.5}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="day"
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={
+                    projectionDays <= 15 ? 1 : projectionDays <= 30 ? 3 : 7
+                  }
+                  dy={8}
+                />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => val.toLocaleString()}
+                  dx={-8}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend verticalAlign="top" height={36} />
+                <ReferenceLine
+                  x="Today"
+                  stroke="#ffffff"
+                  strokeWidth={1.5}
+                  strokeDasharray="3 3"
+                  label={{
+                    value: "Today",
+                    position: "insideTopLeft",
+                    fill: "#ffffff",
+                    fontSize: 10,
+                    fontWeight: "bold",
+                    dy: 10,
+                    dx: 10,
+                  }}
+                />
+                {Object.keys(predictionData[0])
+                  .filter(
+                    (key) =>
+                      key !== "day" &&
+                      key !== "rawDate" &&
+                      key !== "isHistorical" &&
+                      visibleUsers.has(key),
+                  )
+                  .map((username) => {
+                    const allUsernames = Object.keys(predictionData[0]).filter(
+                      (k) =>
+                        k !== "day" && k !== "rawDate" && k !== "isHistorical",
+                    );
+                    const originalIndex = allUsernames.indexOf(username);
+                    const isMe = username === myUsername;
+                    const colorVal = colors[originalIndex % colors.length];
+                    return (
+                      <Line
+                        key={username}
+                        type="monotone"
+                        dataKey={username}
+                        stroke={colorVal}
+                        strokeWidth={isMe ? 3 : 2}
+                        dot={
+                          isMe
+                            ? { r: 3, fill: colorVal, stroke: colorVal }
+                            : false
+                        }
+                        activeDot={{
+                          r: 5,
+                          strokeWidth: 1.5,
+                          stroke: "#ffffff",
+                          fill: colorVal,
+                        }}
+                        connectNulls
+                      />
+                    );
+                  })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full border-border/50 hover:bg-muted/50 transition-colors flex items-center justify-center"
+            onClick={() =>
+              setStartIndex((prev) =>
+                Math.min(predictionData.length - windowSize, prev + 2),
+              )
+            }
+            disabled={startIndex >= predictionData.length - windowSize}
+            title="Move timescale right"
+          >
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
         </div>
 
         {userStats.length > 0 && (
