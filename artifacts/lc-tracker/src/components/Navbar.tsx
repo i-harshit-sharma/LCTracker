@@ -57,7 +57,7 @@ export function Navbar() {
       <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-          <SiLeetcode className="h-6 w-6 text-primary" />
+          <SiLeetcode className="h-6 w-6 text-primary" aria-hidden="true" />
           <span className="font-bold text-base tracking-tight">
             LC<span className="text-primary">Tracker</span>
           </span>
@@ -79,7 +79,7 @@ export function Navbar() {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 {label}
                 {badge != null && badge > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -141,7 +141,7 @@ export function Navbar() {
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
               {label}
               {badge != null && badge > 0 && (
                 <span className="absolute top-1 right-[calc(50%-14px)] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">

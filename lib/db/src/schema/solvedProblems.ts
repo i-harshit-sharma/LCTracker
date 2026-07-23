@@ -10,8 +10,9 @@ import { z } from "zod";
 
 /**
  * solved_problems — stores each accepted LeetCode submission we've detected.
- * The unique index on (leetcodeUsername, problemSlug) prevents duplicate records
+ * The unique index on (leetcodeUsername, submissionId) prevents duplicate records
  * when the poller re-checks the same submission across multiple polling cycles.
+ * Multiple rows can exist for the same problemSlug (resubmissions).
  */
 export const solvedProblemsTable = pgTable(
   "solved_problems",
@@ -27,17 +28,17 @@ export const solvedProblemsTable = pgTable(
     difficulty: text("difficulty").notNull().default("Unknown"),
     /** When LeetCode says it was solved (from submission timestamp) */
     solvedAt: timestamp("solved_at", { withTimezone: true }).notNull(),
-    /** LeetCode submission ID */
-    submissionId: text("submission_id"),
+    /** LeetCode submission ID (or synthetic ID for private/unknown solves) */
+    submissionId: text("submission_id").notNull(),
     /** When our system recorded it */
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("solved_problems_username_slug_idx").on(
+    uniqueIndex("solved_problems_username_submission_idx").on(
       table.leetcodeUsername,
-      table.problemSlug,
+      table.submissionId,
     ),
   ],
 );
