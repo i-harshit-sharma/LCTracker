@@ -478,7 +478,7 @@ async function persistNewSubmissions(
           problemSlug: s.titleSlug,
           problemTitle: s.title,
           difficulty,
-          submissionId: s.id.startsWith("private-") ? null : s.id,
+          submissionId: s.id,
           solvedAt: new Date(Number(s.timestamp) * 1_000),
         };
       }),
