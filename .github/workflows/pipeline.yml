@@ -31,11 +31,6 @@ jobs:
       - name: Full Typecheck
         run: pnpm run typecheck
 
-      - name: Contract Check (API Generation)
-        run: |
-          pnpm run generate:api
-          git diff --exit-code
-
   unit-test:
     name: Unit Tests
     needs: validate

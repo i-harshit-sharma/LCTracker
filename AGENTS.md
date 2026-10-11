@@ -29,9 +29,6 @@ pnpm run test:e2e
 # Lint/format
 pnpm run lint
 
-# Generate API client (from OpenAPI spec)
-pnpm run generate:api
-
 # Database push (schema sync)
 pnpm --filter @workspace/db run push
 
@@ -81,24 +78,21 @@ pnpm --filter @workspace/api-server run dev   # Backend (Express, port 3000)
 
 ## Boundaries (Do Not Touch)
 
-| Path                                          | Reason                                                                |
-| --------------------------------------------- | --------------------------------------------------------------------- |
-| `lib/api-zod/**`                              | Auto-generated from OpenAPI — regenerate via `pnpm generate:api`      |
-| `lib/api-client-react/**`                     | Auto-generated React Query hooks — regenerate via `pnpm generate:api` |
-| `lib/db/migrations/**`                        | Drizzle migrations — use `pnpm --filter @workspace/db run push`       |
-| `artifacts/lc-tracker/src/.generated/**`      | Generated mock components                                             |
-| `.env*` / `.env.*`                            | Secrets — never commit                                                |
-| `dist/`, `build/`, `node_modules/`, `.turbo/` | Build artifacts                                                       |
-| `.github/workflows/`                          | CI/CD — modify only if CI changes needed                              |
+| Path                                          | Reason                                                          |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| `lib/db/migrations/**`                        | Drizzle migrations — use `pnpm --filter @workspace/db run push` |
+| `artifacts/lc-tracker/src/.generated/**`      | Generated mock components                                       |
+| `.env*` / `.env.*`                            | Secrets — never commit                                          |
+| `dist/`, `build/`, `node_modules/`, `.turbo/` | Build artifacts                                                 |
+| `.github/workflows/`                          | CI/CD — modify only if CI changes needed                        |
 
 ---
 
 ## Key Workflows
 
-1. **API changes**: Edit `lib/api-spec/openapi.yaml` → `pnpm generate:api` → types/hooks regenerated in `lib/api-zod` & `lib/api-client-react`
-2. **DB schema**: Edit `lib/db/schema.ts` → `pnpm --filter @workspace/db run push` → migration created
-3. **Frontend hooks**: Import from `@workspace/api-client-react` (e.g., `useGetProblemsQuery()`)
-4. **Poller/Backend sync**: Edit `artifacts/api-server/src/lib/poller.ts` (GraphQL poller, 5-min cron)
+1. **DB schema**: Edit `lib/db/schema.ts` → `pnpm --filter @workspace/db run push` → migration created
+2. **Frontend hooks**: Import from `@workspace/api-client-react` (e.g., `useGetProblemsQuery()`)
+3. **Poller/Backend sync**: Edit `artifacts/api-server/src/lib/poller.ts` (GraphQL poller, 5-min cron)
 
 ---
 
